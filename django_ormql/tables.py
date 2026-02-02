@@ -1,0 +1,225 @@
+import copy
+
+from django.core.exceptions import ImproperlyConfigured
+from django.db import models
+from django.utils.functional import cached_property
+from rest_framework.utils import model_meta
+from rest_framework.utils.field_mapping import ClassLookupDict
+from rest_framework.utils.serializer_helpers import BindingDict
+
+from .columns import BaseColumn, get_column_kwargs, ModelColumn, NumericColumn, BooleanColumn, DateColumn, \
+    DateTimeColumn, \
+    DecimalColumn, DurationColumn, TimeColumn, TextColumn, ForeignKeyColumn
+from .exceptions import QueryError
+
+
+class BaseTable:
+    pass
+
+
+class TableMetaclass(type):
+    """
+    This metaclass sets a dictionary named `_declared_columns` on the class.
+
+    Any instances of `Field` included as attributes on either the class
+    or on any of its superclasses will be included in the `_declared_columns` dictionary.
+    """
+
+    @classmethod
+    def _get_declared_columns(cls, bases, attrs):
+        columns = [(column_name, attrs.pop(column_name))
+                   for column_name, obj in list(attrs.items())
+                   if isinstance(obj, BaseColumn)]
+        # Ensures a base class column doesn't override cls attrs, and maintains
+        # column precedence when inheriting multiple parents. e.g. if there is a
+        # class C(A, B), and A and B both define 'column', use 'column' from A.
+        known = set(attrs)
+
+        def visit(name):
+            known.add(name)
+            return name
+
+        base_columns = [
+            (visit(name), f)
+            for base in bases if hasattr(base, '_declared_columns')
+            for name, f in base._declared_columns.items() if name not in known
+        ]
+
+        return dict(base_columns + columns)
+
+    def __new__(cls, name, bases, attrs):
+        attrs['_declared_columns'] = cls._get_declared_columns(bases, attrs)
+        return super().__new__(cls, name, bases, attrs)
+
+
+class Table(BaseTable, metaclass=TableMetaclass):
+    pass
+
+
+class ModelTable(Table):
+    field_column_mapping = {
+        models.AutoField: NumericColumn,
+        models.BigIntegerField: NumericColumn,
+        models.BooleanField: BooleanColumn,
+        models.CharField: TextColumn,
+        models.CommaSeparatedIntegerField: TextColumn,
+        models.DateField: DateColumn,
+        models.DateTimeField: DateTimeColumn,
+        models.DecimalField: DecimalColumn,
+        models.DurationField: DurationColumn,
+        models.EmailField: TextColumn,
+        models.Field: ModelColumn,
+        models.FileField: NotImplementedError,
+        models.FloatField: NumericColumn,
+        models.ImageField: NotImplementedError,
+        models.IntegerField: NumericColumn,
+        models.NullBooleanField: BooleanColumn,
+        models.PositiveIntegerField: NumericColumn,
+        models.PositiveSmallIntegerField: NumericColumn,
+        models.SlugField: TextColumn,
+        models.SmallIntegerField: NumericColumn,
+        models.TextField: TextColumn,
+        models.TimeField: TimeColumn,
+        models.URLField: TextColumn,
+        models.UUIDField: TextColumn,
+        models.GenericIPAddressField: TextColumn,
+        models.FilePathField: NotImplementedError,
+    }
+
+    def __init__(self, *, base_qs=None):
+        if base_qs is None:
+            self.base_qs = self.Meta.model._default_manager.all()
+        else:
+            self.base_qs = base_qs
+
+    @cached_property
+    def columns(self):
+        """
+        A dictionary of {column_name: column_instance}.
+        """
+        fields = BindingDict(self)
+        for key, value in self.get_columns().items():
+            fields[key] = value
+        return fields
+
+    def get_columns(self):
+        assert hasattr(self, 'Meta'), (
+            'Class {table_class} missing "Meta" attribute'.format(
+                table_class=self.__class__.__name__
+            )
+        )
+        assert hasattr(self.Meta, 'model'), (
+            'Class {table_class} missing "Meta.model" attribute'.format(
+                table_class=self.__class__.__name__
+            )
+        )
+        if model_meta.is_abstract_model(self.Meta.model):
+            raise ValueError(
+                'Cannot use ModelSerializer with Abstract Models.'
+            )
+
+        declared_columns = copy.deepcopy(self._declared_columns)
+        model = getattr(self.Meta, 'model')
+
+        # Retrieve metadata about columns & relationships on the model class.
+        info = model_meta.get_field_info(model)
+        column_names = self.get_column_names(declared_columns, info)
+
+        # Determine the columns that should be included on the table.
+        columns = {}
+
+        for column_name in column_names:
+            # If the column is explicitly declared on the class then use that.
+            if column_name in declared_columns:
+                columns[column_name] = declared_columns[column_name]
+                continue
+
+            column_class, column_kwargs = self.build_column(
+                column_name, info, model,
+            )
+            columns[column_name] = column_class(**column_kwargs)
+        return columns
+
+    def get_column_names(self, declared_columns, info):
+        """
+        Returns the list of all column names that should be created when
+        instantiating this table class. This is based on the default
+        set of columns, but also takes into account the `Meta.columns` or
+        `Meta.exclude` options if they have been specified.
+        """
+        columns = getattr(self.Meta, 'columns', None)
+        if not isinstance(columns, (list, tuple)):
+            raise TypeError(
+                'The `columns` option must be a list or tuple or "__all__". '
+                'Got %s.' % type(columns).__name__
+            )
+
+        # Ensure that all declared columns have also been included in the
+        # `Meta.columns` option.
+
+        # Do not require any columns that are declared in a parent class,
+        # in order to allow table subclasses to only include
+        # a subset of columns.
+        required_column_names = set(declared_columns)
+        for cls in self.__class__.__bases__:
+            required_column_names -= set(getattr(cls, '_declared_columns', []))
+
+        for column_name in required_column_names:
+            assert column_name in columns, (
+                "The column '{column_name}' was declared on table "
+                "{table_class}, but has not been included in the "
+                "'columns' option.".format(
+                    column_name=column_name,
+                    table_class=self.__class__.__name__
+                )
+            )
+        return columns
+
+    def build_column(self, column_name, info, model_class):
+        """
+        Return a two tuple of (cls, kwargs) to build a table column with.
+        """
+        if column_name in info.fields_and_pk:
+            model_column = info.fields_and_pk[column_name]
+            return self.build_standard_column(column_name, model_column)
+
+        elif column_name in info.relations:
+            raise ImproperlyConfigured("Relational columns need to be defined explicitly.")
+
+        raise ImproperlyConfigured(
+            'Field name `%s` is not valid for model `%s` in `%s.%s`.' %
+            (column_name, model_class.__name__, self.__class__.__module__, self.__class__.__name__)
+        )
+
+    def build_standard_column(self, column_name, model_column):
+        column_mapping = ClassLookupDict(self.field_column_mapping)
+
+        column_class = column_mapping[model_column]
+        column_kwargs = get_column_kwargs(model_column)
+
+        # Special case to handle when a OneToOneField is also the primary key
+        if model_column.one_to_one and model_column.primary_key:
+            raise NotImplementedError("TODO")
+
+        if not issubclass(column_class, ModelColumn):
+            # `model_column` is only valid for the fallback case of
+            # `ModelField`, which is used when no other typed column
+            # matched to the model column.
+            column_kwargs.pop('model_column', None)
+
+        return column_class, column_kwargs
+
+    def resolve_column_path(self, column_path):
+        column_name = column_path[0]
+        if column_name not in self.columns:
+            raise QueryError(f"Column '{column_path[0]}' does not exist in table '{self.Meta.name}'.")
+
+        column = self.columns[column_name]
+        if isinstance(column, ForeignKeyColumn):
+            rt = column.related_table()
+            if len(column_path) > 1:
+                related_field = rt.resolve_column_path(column_path[1:])
+            else:
+                related_field = "pk"
+            return '__'.join([column.source, related_field])
+        return column.source

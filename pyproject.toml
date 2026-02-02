@@ -1,0 +1,39 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools"]
+
+[project]
+name = "django-ormql"
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
+description = "ORM Query Layer"
+readme = "README.md"
+authors = [{ name = "Raphael Michel", email = "mail@raphaelmichel.de" }]
+keywords = [
+    "django",
+    "sql",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "sqlglot",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://github.com/pretix/django-ormql"
+
+[tool.setuptools.dynamic]
+version = { attr = "django_ormql.version" }
+
+[tool.setuptools.packages.find]
+include = ["django_ormql*"]
