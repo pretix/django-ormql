@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models import F, Value, Q, ExpressionWrapper, BooleanField, aggregates, OrderBy
 from django.db.models.functions import Cast
-from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator
+from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator, ParseError
 from sqlglot import expressions
 
 from . import db_func
@@ -10,68 +10,68 @@ from .exceptions import QueryNotSupported
 
 class OrmqlDialect(Dialect):
     class Tokenizer(Tokenizer):
-        QUOTES = ["'", '"']
-        IDENTIFIERS = ["`"]
+        QUOTES = ["'", '"']  # todo tests
+        IDENTIFIERS = ["`"]  # todo tests
 
         KEYWORDS = {
-            "==": TokenType.EQ,
-            "::": TokenType.DCOLON,
-            ">=": TokenType.GTE,
-            "<=": TokenType.LTE,
-            "<>": TokenType.NEQ,
-            "!=": TokenType.NEQ,
-            "AND": TokenType.AND,
+            "==": TokenType.EQ,  # todo tests
+            "::": TokenType.DCOLON,  # todo tests
+            ">=": TokenType.GTE,  # todo tests
+            "<=": TokenType.LTE,  # todo tests
+            "<>": TokenType.NEQ,  # todo tests
+            "!=": TokenType.NEQ,  # todo tests
+            "AND": TokenType.AND,  # todo tests
             "ASC": TokenType.ASC,
             "AS": TokenType.ALIAS,
-            "BETWEEN": TokenType.BETWEEN,
-            "CASE": TokenType.CASE,
-            "CURRENT_DATE": TokenType.CURRENT_DATE,
-            "CURRENT_TIME": TokenType.CURRENT_TIME,
-            "CURRENT_TIMESTAMP": TokenType.CURRENT_TIMESTAMP,
+            "BETWEEN": TokenType.BETWEEN,  # todo tests
+            "CASE": TokenType.CASE,  # todo tests
+            "CURRENT_DATE": TokenType.CURRENT_DATE,  # todo tests
+            "CURRENT_TIME": TokenType.CURRENT_TIME,  # todo tests
+            "CURRENT_TIMESTAMP": TokenType.CURRENT_TIMESTAMP,  # todo tests
             "DESC": TokenType.DESC,
             "DISTINCT": TokenType.DISTINCT,
-            "ELSE": TokenType.ELSE,
-            "END": TokenType.END,
-            "EXISTS": TokenType.EXISTS,
-            "FALSE": TokenType.FALSE,
+            "ELSE": TokenType.ELSE,  # todo tests
+            "END": TokenType.END,  # todo tests
+            "EXISTS": TokenType.EXISTS,  # todo tests
+            "FALSE": TokenType.FALSE,  # todo tests
             "FIRST": TokenType.FIRST,
             "FROM": TokenType.FROM,
             "GROUP BY": TokenType.GROUP_BY,
             "HAVING": TokenType.HAVING,
-            "ILIKE": TokenType.ILIKE,
-            "IN": TokenType.IN,
-            "IS": TokenType.IS,
-            "ISNULL": TokenType.ISNULL,
-            "LIKE": TokenType.LIKE,
+            "ILIKE": TokenType.ILIKE,  # todo tests
+            "IN": TokenType.IN,  # todo tests
+            "IS": TokenType.IS,  # todo tests
+            "ISNULL": TokenType.ISNULL,  # todo tests
+            "LIKE": TokenType.LIKE,  # todo tests
             "LIMIT": TokenType.LIMIT,
-            "NOT": TokenType.NOT,
-            "NOTNULL": TokenType.NOTNULL,
-            "NULL": TokenType.NULL,
+            "NOT": TokenType.NOT,  # todo tests
+            "NOTNULL": TokenType.NOTNULL,  # todo tests
+            "NULL": TokenType.NULL,  # todo tests
             "OFFSET": TokenType.OFFSET,
-            "OR": TokenType.OR,
+            "OR": TokenType.OR,  # todo tests
             "ORDER BY": TokenType.ORDER_BY,
-            "REGEXP": TokenType.RLIKE,
+            "REGEXP": TokenType.RLIKE,  # todo tests
             "SELECT": TokenType.SELECT,
-            "SOME": TokenType.SOME,
-            "THEN": TokenType.THEN,
+            "SOME": TokenType.SOME,  # todo tests
+            "THEN": TokenType.THEN,  # todo tests
             "TRUE": TokenType.TRUE,
-            "WHEN": TokenType.WHEN,
-            "WHERE": TokenType.WHERE,
+            "WHEN": TokenType.WHEN,  # todo tests
+            "WHERE": TokenType.WHERE,  # todo tests
             # TYPES
-            "BOOL": TokenType.BOOLEAN,
-            "BOOLEAN": TokenType.BOOLEAN,
-            "INT": TokenType.INT,
-            "BIGINT": TokenType.BIGINT,
-            "DECIMAL": TokenType.DECIMAL,
-            "FLOAT": TokenType.FLOAT,
-            "DOUBLE": TokenType.DOUBLE,
+            "BOOL": TokenType.BOOLEAN,  # todo tests
+            "BOOLEAN": TokenType.BOOLEAN,  # todo tests
+            "INT": TokenType.INT,  # todo tests
+            "BIGINT": TokenType.BIGINT,  # todo tests
+            "DECIMAL": TokenType.DECIMAL,  # todo tests
+            "FLOAT": TokenType.FLOAT,  # todo tests
+            "DOUBLE": TokenType.DOUBLE,  # todo tests
             # "JSON": TokenType.JSON,
             # "JSONB": TokenType.JSONB,
-            "TEXT": TokenType.TEXT,
-            "TIME": TokenType.TIME,
-            "TIMESTAMPTZ": TokenType.TIMESTAMPTZ,
-            "DATE": TokenType.DATE,
-            "DATETIME": TokenType.DATETIME,
+            "TEXT": TokenType.TEXT,  # todo tests
+            "TIME": TokenType.TIME,  # todo tests
+            "TIMESTAMPTZ": TokenType.TIMESTAMPTZ,  # todo tests
+            "DATE": TokenType.DATE,  # todo tests
+            "DATETIME": TokenType.DATETIME,  # todo tests
         }
 
     class Generator(Generator):
@@ -79,29 +79,29 @@ class OrmqlDialect(Dialect):
 
 
 boolean_expression_nodes = {
-    expressions.EQ: db_func.Equal,
-    expressions.NEQ: db_func.NotEqual,
-    expressions.GT: db_func.GreaterThan,
-    expressions.GTE: db_func.GreaterEqualThan,
-    expressions.LT: db_func.LowerThan,
-    expressions.LTE: db_func.LowerEqualThan
+    expressions.EQ: db_func.Equal,  # todo tests
+    expressions.NEQ: db_func.NotEqual,  # todo tests
+    expressions.GT: db_func.GreaterThan,  # todo tests
+    expressions.GTE: db_func.GreaterEqualThan,  # todo tests
+    expressions.LT: db_func.LowerThan,  # todo tests
+    expressions.LTE: db_func.LowerEqualThan  # todo tests
 }
 
 math_binary_nodes = {
-    expressions.Mul: db_func.Mul,
-    expressions.Add: db_func.Add,
-    expressions.Sub: db_func.Sub,
-    expressions.Div: db_func.Div,
+    expressions.Mul: db_func.Mul,  # todo tests
+    expressions.Add: db_func.Add,  # todo tests
+    expressions.Sub: db_func.Sub,  # todo tests
+    expressions.Div: db_func.Div,  # todo tests
 }
 
 aggregate_nodes = {
-    expressions.Avg: aggregates.Avg,
-    expressions.Count: aggregates.Count,
-    expressions.Max: aggregates.Max,
-    expressions.Min: aggregates.Min,
-    expressions.Stddev: aggregates.StdDev,
-    expressions.Variance: aggregates.Variance,
-    expressions.Sum: aggregates.Sum,
+    expressions.Avg: aggregates.Avg,  # todo tests
+    expressions.Count: aggregates.Count,  # todo tests
+    expressions.Max: aggregates.Max,  # todo tests
+    expressions.Min: aggregates.Min,  # todo tests
+    expressions.Stddev: aggregates.StdDev,  # todo tests
+    expressions.Variance: aggregates.Variance,  # todo tests
+    expressions.Sum: aggregates.Sum,  # todo tests
 }
 
 types = {
@@ -152,20 +152,32 @@ def expression_to_django(expression, table, aggregate_names=None):
     elif isinstance(expression, expressions.Alias):
         return expression_to_django(expression.this, table)
     elif isinstance(expression, expressions.Literal):
-        return Value(expression.this)
+        return Value(expression.to_py())
+    elif isinstance(expression, expressions.Star):
+        return "*"
     elif isinstance(expression, expressions.Cast):
         return Cast(
             expression_to_django(expression.this, table, aggregate_names),
             output_field=types[expression.to.this],
         )
     elif type(expression) in aggregate_nodes:
-        return aggregate_nodes[type(expression)](expression_to_django(expression.this, table))
+        # TODO: COUNT(*) FILTER …
+        # TODO: COUNT(a, b)
+        if isinstance(expression.this, expressions.Distinct):
+            args = [expression_to_django(e, table) for e in expression.this.expressions]
+            distinct = True
+        else:
+            args = [expression_to_django(expression.this, table)]
+            distinct = False
+        return aggregate_nodes[type(expression)](*args, distinct=distinct)
     elif type(expression) in math_binary_nodes:
         # TODO: Auto-set output_field if e.g. INT*DECIMAL is used
         return math_binary_nodes[type(expression)](
             expression_to_django(expression.left, table),
             expression_to_django(expression.right, table),
         )
+    elif isinstance(expression, expressions.Order):
+        raise QueryNotSupported("ORDER not supported in expression")
     else:
         # TODO: mod, neg, ...
         # TODO: CASE ... WHEN
@@ -180,9 +192,9 @@ def expression_to_name(expression):
     elif isinstance(expression, expressions.Alias):
         return expression.output_name
     elif type(expression) in aggregate_nodes:
-        return "agg_result"
+        return expression.sql()
     else:
-        raise NotImplementedError(f"TODO implement expression type {type(expression)}")
+        return expression.sql()
 
 
 def where_to_django(node, table, aggregate_names):
@@ -208,7 +220,11 @@ def where_to_django(node, table, aggregate_names):
 
 
 def sql_to_queryset(sql, tables):
-    ast = parse_one(sql, dialect=OrmqlDialect)
+    try:
+        ast = parse_one(sql, dialect=OrmqlDialect)
+    except ParseError as e:
+        raise QueryNotSupported(str(e)) from e
+
     print(repr(ast))
 
     if not isinstance(ast, expressions.Select):
@@ -217,6 +233,10 @@ def sql_to_queryset(sql, tables):
     table = ast.args["from_"].this
     if not isinstance(table, expressions.Table):
         raise QueryNotSupported("Unsupported FROM statement")
+    if table.args.get("alias"):
+        raise QueryNotSupported("Table alias not supported")
+    if table.args.get("db"):
+        raise QueryNotSupported("Database names not supported")
     if ast.args.get("joins"):
         raise QueryNotSupported("SELECT from multiple tables not supported")
 
@@ -235,8 +255,6 @@ def sql_to_queryset(sql, tables):
         for i, e in enumerate(ast.args["group"]):
             django_e = expression_to_django(e, table)
             group_args.append(django_e)
-
-    # TODO: DISTINCT
 
     values_args = {}
     values_names = {}
@@ -260,6 +278,9 @@ def sql_to_queryset(sql, tables):
                 values_args[f"expr{i}"] = expression_to_django(e, table)
                 values_names[f"expr{i}"] = n
 
+    if ast.args.get("distinct"):
+        qs = qs.distinct()
+
     order_by = []
     if ast.args.get("order"):
         for i, ordered in enumerate(ast.args["order"].args["expressions"]):
@@ -269,6 +290,7 @@ def sql_to_queryset(sql, tables):
                         F(name_to_aggregation[ordered.this.this.this]),
                         descending=ordered.args["desc"],
                         nulls_first=ordered.args["nulls_first"],
+                        nulls_last=not ordered.args["nulls_first"],
                     )
                 )
             else:
@@ -277,6 +299,7 @@ def sql_to_queryset(sql, tables):
                         expression_to_django(ordered.this, table),
                         descending=ordered.args["desc"],
                         nulls_first=ordered.args["nulls_first"],
+                        nulls_last=not ordered.args["nulls_first"],
                     )
                 )
 
@@ -307,17 +330,25 @@ def sql_to_queryset(sql, tables):
         }
     else:
         if ast.args.get("offset") and ast.args.get("limit"):
-            offset = int(ast.args.get("offset").expression.this)
-            limit = int(ast.args.get("limit").expression.this)
+            if not isinstance(ast.args["limit"].expression, expressions.Literal):
+                raise QueryNotSupported("LIMIT may only contain literal numbers")
+            if not isinstance(ast.args["offset"].expression, expressions.Literal):
+                raise QueryNotSupported("OFFSET may only contain literal numbers")
+            offset = int(ast.args["offset"].expression.this)
+            limit = int(ast.args["limit"].expression.this)
             qs = qs[offset:offset + limit]
         elif ast.args.get("limit"):
-            limit = int(ast.args.get("limit").expression.this)
+            if not isinstance(ast.args["limit"].expression, expressions.Literal):
+                raise QueryNotSupported("LIMIT may only contain literal numbers")
+            limit = int(ast.args["limit"].expression.this)
             qs = qs[:limit]
         elif ast.args.get("offset"):
-            offset = int(ast.args.get("offset").expression.this)
+            if not isinstance(ast.args["offset"].expression, expressions.Literal):
+                raise QueryNotSupported("OFFSET may only contain literal numbers")
+            offset = int(ast.args["offset"].expression.this)
             qs = qs[offset:]
 
-        print(qs.query)
+        print(qs, qs.query)
         for row in qs:
             yield {
                 values_names[k]: v
