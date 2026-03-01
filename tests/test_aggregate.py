@@ -112,3 +112,19 @@ def test_aggregate_functions(engine_t1):
          'VARIANCE(price)': Decimal('21.0155555555556'),
          'SUM(price)': Decimal('51.1000000000000')}
     ]
+
+
+@pytest.mark.django_db
+def test_aggregate_filter(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT
+            COUNT(DISTINCT id) FILTER (WHERE order.status = "paid") AS paid,
+            COUNT(id) FILTER (WHERE order.status = "canceled") AS canceled,
+            COUNT(id) AS all
+        FROM orderpositions
+        """
+    )
+    assert list(res) == [
+        {'paid': 2, 'canceled': 3, 'all': 5}
+    ]

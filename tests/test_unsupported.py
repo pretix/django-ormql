@@ -197,3 +197,53 @@ def test_unsupported_function(engine_t1):
             FROM products
             """
         ))
+
+
+@pytest.mark.django_db
+def test_unsupported_any_all(engine_t1):
+    with pytest.raises(QueryError, match="Unsupported expression: ANY"):
+        list(engine_t1.query(
+            """
+            SELECT id
+            FROM products
+            WHERE id = ANY(SELECT product FROM orderpositions)
+            """
+        ))
+    with pytest.raises(QueryError, match="Unsupported expression: ALL"):
+        list(engine_t1.query(
+            """
+            SELECT id
+            FROM products
+            WHERE id >= ALL(SELECT product FROM orderpositions)
+            """
+        ))
+    with pytest.raises(QueryError, match="Unsupported expression: SOME"):
+        list(engine_t1.query(
+            """
+            SELECT id
+            FROM products
+            WHERE id = SOME(SELECT product FROM orderpositions)
+            """
+        ))
+
+
+@pytest.mark.django_db
+def test_select_from_subquery(engine_t1):
+    with pytest.raises(QueryError, match="Unsupported FROM statement"):
+        list(engine_t1.query(
+            """
+            SELECT id
+            FROM (SELECT id, title FROM products)
+            """
+        ))
+
+
+@pytest.mark.django_db
+def test_aggregate_window(engine_t1):
+    with pytest.raises(QueryError, match="Invalid expression / Unexpected token"):
+        list(engine_t1.query(
+            """
+            SELECT COUNT(*) FILTER(WHERE status = "paid") OVER (foo)
+            FROM orderpositions
+            """
+        ))

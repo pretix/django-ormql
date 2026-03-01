@@ -11,6 +11,9 @@ from django_ormql.exceptions import QueryNotSupported, QueryError
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("expr,result", [
+    # String quotes
+    ('"foo"', "foo"),
+    ("'foo'", "foo"),
     # Binary operators
     ("single_price + 10", Decimal("29.00")),
     ("single_price + 10.5", Decimal("29.5")),

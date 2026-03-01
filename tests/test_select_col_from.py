@@ -72,6 +72,17 @@ def test_auto_join_two_levels(engine_t1):
 
 
 @pytest.mark.django_db
+def test_quote_identifier(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT `order`.`customer`.`name` AS `LIMIT`
+        FROM `orderpositions` LIMIT 1
+        """
+    )
+    assert list(res) == [{'LIMIT': 'CA'}]
+
+
+@pytest.mark.django_db
 def test_select_literal_expression(engine_t1):
     res = engine_t1.query(
         """

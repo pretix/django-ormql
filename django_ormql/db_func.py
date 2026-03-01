@@ -1,5 +1,5 @@
 from django.core.exceptions import FieldError
-from django.db.models import Func, fields, Value, ExpressionWrapper, Case
+from django.db.models import Func, fields, Value, ExpressionWrapper, Case, Subquery
 
 
 class Equal(Func):
@@ -127,4 +127,8 @@ class Mod(NumericResolveMixin, Func):
 
 
 class NumericAwareCase(NumericResolveMixin, Case):
+    pass
+
+
+class AutoTypedSubquery(Subquery):
     pass

@@ -1,4 +1,5 @@
-from .query import sql_to_queryset
+from .query import Query
+
 
 class QueryEngine:
     def __init__(self):
@@ -8,4 +9,4 @@ class QueryEngine:
         self.tables[table.Meta.name] = table
 
     def query(self, query):
-        return sql_to_queryset(query, self.tables)
+        return Query(query, self.tables).evaluate()

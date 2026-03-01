@@ -61,6 +61,7 @@ class OrderTable(ModelTable):
         name = "orders"
         model = Order
         columns = [
+            "id",
             "customer",
             "created",
             "status",
@@ -75,6 +76,7 @@ class OrderPositionTable(ModelTable):
         name = "orderpositions"
         model = OrderPosition
         columns = [
+            "id",
             "order",
             "product",
             "quantity",
