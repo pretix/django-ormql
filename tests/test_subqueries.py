@@ -190,3 +190,11 @@ def test_invalid_outerref(engine_t1):
             WHERE quantity = 3
             """
         ))
+    with pytest.raises(QueryError, match="Invalid argument to OUTER"):
+        list(engine_t1.query(
+            f"""
+            SELECT (SELECT name FROM customers WHERE id = OUTER(CASE WHEN 1 = 2 THEN 3 END)) AS result
+            FROM orderpositions
+            WHERE quantity = 3
+            """
+        ))

@@ -17,6 +17,8 @@ tz_ny = zoneinfo.ZoneInfo("America/New_York")
     ('"foo"', "foo"),
     ("'foo'", "foo"),
     # Binary operators
+    ("10.5::float + 10::int", Decimal("20.5")),
+    ("single_price::decimal + 10.5::float + 10::int", Decimal("39.5")),
     ("single_price + 10", Decimal("29.00")),
     ("single_price + 10.5", Decimal("29.5")),
     ("single_price + quantity", Decimal("22.0")),
@@ -257,8 +259,11 @@ def test_functions(engine_t1, expr, result):
     "EXTRACT('year' FROM order.created, 12)",
     "EXTRACT('year', order.created, 12)",
     "EXTRACT('year')",
+    "EXTRACT('invalid', order.created)",
     "DATETRUNC('year', order.created, 4)",
     "DATETRUNC('year')",
+    "DATETRUNC('invalid', order.created)",
+    "DATETRUNC(CASE WHEN 1 = 2 THEN 'year' ELSE 'month' END, order.created)",
     "LEFT(product.title)",
     "RIGHT(product.title)",
     "LENGTH(product.title, 3)",
@@ -269,9 +274,11 @@ def test_functions(engine_t1, expr, result):
     "REPLACE(product.title)",
     "INSTR(product.title)",
     "INSTR(product.title, 'of', 4)",
+    "INSTR(product.title, 'of', 4, 5)",
     "SUBSTRING(product.title)",
+    "SUBSTRING(product.title, 2, 3, 4, 5)",
 ])
-def test_functions_wrong_arity(engine_t1, expr):
+def test_functions_wrong_arity_or_input(engine_t1, expr):
     with pytest.raises((QueryError, ValueError)):
         list(engine_t1.query(
             f"""
