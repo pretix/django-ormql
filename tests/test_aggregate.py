@@ -41,7 +41,7 @@ def test_aggregate_multiple(engine_t1):
     ))
     assert len(res) == 1
     assert res[0]["COUNT(id)"] == 3
-    assert round(res[0]["sum"], 2) == 51.10
+    assert res[0]["sum"] == Decimal("51.10")
 
 
 @pytest.mark.django_db

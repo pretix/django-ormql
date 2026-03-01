@@ -35,6 +35,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 dev = [
     "pytest==9.*",
+    "pytest-cov",
     "django<6.0",
     "factory_boy==3.*",
 ]

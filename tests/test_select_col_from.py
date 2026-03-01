@@ -28,9 +28,9 @@ def test_multiple_columns(engine_t1):
         """
     )
     assert list(res) == [
-        {'title': 'Lord of the rings', 'price': '10.70'},
-        {'title': 'SQL for Dummies', 'price': '21.40'},
-        {'title': 'Lord of the rings DVD', 'price': '19.00'}
+        {'title': 'Lord of the rings', 'price': Decimal('10.70')},
+        {'title': 'SQL for Dummies', 'price': Decimal('21.40')},
+        {'title': 'Lord of the rings DVD', 'price': Decimal('19.00')}
     ]
 
 
@@ -43,9 +43,9 @@ def test_column_alias(engine_t1):
         """
     )
     assert list(res) == [
-        {'Product Name': 'Lord of the rings', 'price': '10.70'},
-        {'Product Name': 'SQL for Dummies', 'price': '21.40'},
-        {'Product Name': 'Lord of the rings DVD', 'price': '19.00'}
+        {'Product Name': 'Lord of the rings', 'price': Decimal('10.70')},
+        {'Product Name': 'SQL for Dummies', 'price': Decimal('21.40')},
+        {'Product Name': 'Lord of the rings DVD', 'price': Decimal('19.00')}
     ]
 
 
@@ -80,6 +80,17 @@ def test_select_literal_expression(engine_t1):
         """
     )
     assert list(res) == [{'3 * 5': 15}, {'3 * 5': 15}, {'3 * 5': 15}, {'3 * 5': 15}, {'3 * 5': 15}]
+
+
+@pytest.mark.django_db
+def test_select_literal_none(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT NULL
+        FROM orderpositions LIMIT 1
+        """
+    )
+    assert list(res) == [{'NULL': None}]
 
 
 @pytest.mark.django_db

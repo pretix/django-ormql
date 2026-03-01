@@ -22,7 +22,7 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     tags = models.ManyToManyField(Tag)
     title = models.CharField(max_length=250)
-    price = models.CharField(max_length=250)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
     tax_rate = models.DecimalField(max_digits=10, decimal_places=2)
     publication_date = models.DateField()
 

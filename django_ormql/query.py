@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import F, Value, Q, ExpressionWrapper, BooleanField, aggregates, OrderBy
+from django.db.models import F, Value, Q, ExpressionWrapper, BooleanField, aggregates, OrderBy, functions, lookups
 from django.db.models.functions import Cast
 from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator, ParseError
 from sqlglot import expressions
@@ -14,16 +14,16 @@ class OrmqlDialect(Dialect):
         IDENTIFIERS = ["`"]  # todo tests
 
         KEYWORDS = {
-            "==": TokenType.EQ,  # todo tests
+            "==": TokenType.EQ,
             "::": TokenType.DCOLON,  # todo tests
-            ">=": TokenType.GTE,  # todo tests
-            "<=": TokenType.LTE,  # todo tests
-            "<>": TokenType.NEQ,  # todo tests
-            "!=": TokenType.NEQ,  # todo tests
-            "AND": TokenType.AND,  # todo tests
+            ">=": TokenType.GTE,
+            "<=": TokenType.LTE,
+            "<>": TokenType.NEQ,
+            "!=": TokenType.NEQ,
+            "AND": TokenType.AND,
             "ASC": TokenType.ASC,
             "AS": TokenType.ALIAS,
-            "BETWEEN": TokenType.BETWEEN,  # todo tests
+            "BETWEEN": TokenType.BETWEEN,
             "CASE": TokenType.CASE,  # todo tests
             "CURRENT_DATE": TokenType.CURRENT_DATE,  # todo tests
             "CURRENT_TIME": TokenType.CURRENT_TIME,  # todo tests
@@ -40,23 +40,22 @@ class OrmqlDialect(Dialect):
             "HAVING": TokenType.HAVING,
             "ILIKE": TokenType.ILIKE,  # todo tests
             "IN": TokenType.IN,  # todo tests
-            "IS": TokenType.IS,  # todo tests
-            "ISNULL": TokenType.ISNULL,  # todo tests
+            "IS": TokenType.IS,
+            "ISNULL": TokenType.ISNULL,
             "LIKE": TokenType.LIKE,  # todo tests
             "LIMIT": TokenType.LIMIT,
-            "NOT": TokenType.NOT,  # todo tests
-            "NOTNULL": TokenType.NOTNULL,  # todo tests
-            "NULL": TokenType.NULL,  # todo tests
+            "NOT": TokenType.NOT,
+            "NOTNULL": TokenType.NOTNULL,
+            "NULL": TokenType.NULL,
             "OFFSET": TokenType.OFFSET,
-            "OR": TokenType.OR,  # todo tests
+            "OR": TokenType.OR,
             "ORDER BY": TokenType.ORDER_BY,
-            "REGEXP": TokenType.RLIKE,  # todo tests
             "SELECT": TokenType.SELECT,
             "SOME": TokenType.SOME,  # todo tests
             "THEN": TokenType.THEN,  # todo tests
             "TRUE": TokenType.TRUE,
             "WHEN": TokenType.WHEN,  # todo tests
-            "WHERE": TokenType.WHERE,  # todo tests
+            "WHERE": TokenType.WHERE,
             # TYPES
             "BOOL": TokenType.BOOLEAN,  # todo tests
             "BOOLEAN": TokenType.BOOLEAN,  # todo tests
@@ -79,19 +78,23 @@ class OrmqlDialect(Dialect):
 
 
 boolean_expression_nodes = {
-    expressions.EQ: db_func.Equal,  # todo tests
-    expressions.NEQ: db_func.NotEqual,  # todo tests
-    expressions.GT: db_func.GreaterThan,  # todo tests
-    expressions.GTE: db_func.GreaterEqualThan,  # todo tests
-    expressions.LT: db_func.LowerThan,  # todo tests
-    expressions.LTE: db_func.LowerEqualThan  # todo tests
+    expressions.EQ: db_func.Equal,
+    expressions.NEQ: db_func.NotEqual,
+    expressions.GT: db_func.GreaterThan,
+    expressions.GTE: db_func.GreaterEqualThan,
+    expressions.LT: db_func.LowerThan,
+    expressions.LTE: db_func.LowerEqualThan,
+    expressions.Is: db_func.Is,
+    expressions.Like: db_func.Like,
+    expressions.ILike: lambda a, b: db_func.Like(functions.Upper(a), functions.Upper(b)),
 }
 
 math_binary_nodes = {
-    expressions.Mul: db_func.Mul,  # todo tests
-    expressions.Add: db_func.Add,  # todo tests
-    expressions.Sub: db_func.Sub,  # todo tests
-    expressions.Div: db_func.Div,  # todo tests
+    expressions.Mul: db_func.Mul,
+    expressions.Add: db_func.Add,
+    expressions.Sub: db_func.Sub,
+    expressions.Div: db_func.Div,
+    expressions.Mod: db_func.Mod,
 }
 
 aggregate_nodes = {
@@ -171,16 +174,69 @@ def expression_to_django(expression, table, aggregate_names=None):
             distinct = False
         return aggregate_nodes[type(expression)](*args, distinct=distinct)
     elif type(expression) in math_binary_nodes:
-        # TODO: Auto-set output_field if e.g. INT*DECIMAL is used
+        lhs = expression_to_django(expression.left, table)
+        rhs = expression_to_django(expression.right, table)
         return math_binary_nodes[type(expression)](
-            expression_to_django(expression.left, table),
-            expression_to_django(expression.right, table),
+            lhs,
+            rhs,
         )
     elif isinstance(expression, expressions.Order):
         raise QueryNotSupported("ORDER not supported in expression")
+    elif isinstance(expression, expressions.Null):
+        # TODO do we need to guess output_field better?
+        return Value(None, output_field=models.TextField(null=True))
+    elif isinstance(expression, (expressions.NullSafeEQ, expressions.NullSafeNEQ)):
+        raise QueryNotSupported("IS (NOT) DISTINCT not supported")
+    elif isinstance(expression, expressions.Paren):
+        return expression_to_django(expression.this, table, aggregate_names)
+    elif isinstance(expression, expressions.Neg):
+        return -expression_to_django(expression.this, table, aggregate_names)
+    elif isinstance(expression, (
+            expressions.BitwiseNot,
+            expressions.BitwiseOr,
+            expressions.BitwiseXor,
+            expressions.BitwiseAnd,
+            expressions.BitwiseCount,
+            expressions.BitwiseLeftShift,
+            expressions.BitwiseRightShift,
+    )):
+        raise QueryNotSupported("Bitwise operations not supported")
+    elif type(expression) in boolean_expression_nodes:
+        return ExpressionWrapper(
+            boolean_expression_nodes[type(expression)](
+                expression_to_django(expression.left, table, aggregate_names),
+                expression_to_django(expression.right, table, aggregate_names),
+            ),
+            output_field=BooleanField()
+        )
+    elif isinstance(expression, expressions.Between):
+        return Q(ExpressionWrapper(
+            db_func.GreaterEqualThan(
+                expression_to_django(expression.this, table, aggregate_names),
+                expression_to_django(expression.args["low"], table, aggregate_names),
+            ),
+            output_field=BooleanField()
+        )) & Q(ExpressionWrapper(
+            db_func.LowerEqualThan(
+                expression_to_django(expression.this, table, aggregate_names),
+                expression_to_django(expression.args["high"], table, aggregate_names),
+            ),
+            output_field=BooleanField()
+        ))
+    elif isinstance(expression, expressions.In):
+        return ExpressionWrapper(lookups.In(
+            expression_to_django(expression.this, table, aggregate_names),
+            [expression_to_django(e, table, aggregate_names) for e in expression.expressions],
+        ), output_field=BooleanField())
+    elif isinstance(expression, expressions.And):
+        return expression_to_django(expression.left, table, aggregate_names) & expression_to_django(expression.right, table, aggregate_names)
+    elif isinstance(expression, expressions.Or):
+        return expression_to_django(expression.left, table, aggregate_names) | expression_to_django(expression.right, table, aggregate_names)
+    elif isinstance(expression, expressions.Not):
+        return ~expression_to_django(expression.this, table, aggregate_names)
     else:
-        # TODO: mod, neg, ...
         # TODO: CASE ... WHEN
+        # TODO: better error message (expression.sql() not supported here)
         raise NotImplementedError(f"TODO implement expression type {type(expression)}")
 
 
@@ -198,25 +254,7 @@ def expression_to_name(expression):
 
 
 def where_to_django(node, table, aggregate_names):
-    if isinstance(node, expressions.And):
-        return where_to_django(node.left, table, aggregate_names) & where_to_django(node.right, table, aggregate_names)
-    elif isinstance(node, expressions.Or):
-        return where_to_django(node.left, table, aggregate_names) | where_to_django(node.right, table, aggregate_names)
-    elif isinstance(node, expressions.Not):
-        return ~where_to_django(node.this, table, aggregate_names)
-    elif type(node) in boolean_expression_nodes:
-        return Q(
-            ExpressionWrapper(
-                boolean_expression_nodes[type(node)](
-                    expression_to_django(node.left, table, aggregate_names),
-                    expression_to_django(node.right, table, aggregate_names),
-                ),
-                output_field=BooleanField()
-            )
-        )
-    else:
-        return expression_to_django(node, table)
-    # TODO: LIKE, ILIKE, IS, MATCH, ...
+    return expression_to_django(node, table, aggregate_names)
 
 
 def sql_to_queryset(sql, tables):
@@ -284,7 +322,8 @@ def sql_to_queryset(sql, tables):
     order_by = []
     if ast.args.get("order"):
         for i, ordered in enumerate(ast.args["order"].args["expressions"]):
-            if isinstance(ordered.this, expressions.Column) and isinstance(ordered.this.this, expressions.Identifier) and ordered.this.this.this in name_to_aggregation:
+            if isinstance(ordered.this, expressions.Column) and isinstance(ordered.this.this,
+                                                                           expressions.Identifier) and ordered.this.this.this in name_to_aggregation:
                 order_by.append(
                     OrderBy(
                         F(name_to_aggregation[ordered.this.this.this]),
