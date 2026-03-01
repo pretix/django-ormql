@@ -1,3 +1,5 @@
+import datetime
+
 from .query import Query
 
 
@@ -8,5 +10,5 @@ class QueryEngine:
     def register_table(self, table):
         self.tables[table.Meta.name] = table
 
-    def query(self, query):
-        return Query(query, self.tables).evaluate()
+    def query(self, query, timezone=datetime.timezone.utc):
+        return Query(query, self.tables, timezone).evaluate()

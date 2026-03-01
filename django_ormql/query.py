@@ -1,5 +1,3 @@
-from datetime import timezone
-
 from django.db import models
 from django.db.models import F, Value, Q, ExpressionWrapper, BooleanField, aggregates, OrderBy, functions, lookups, \
     OuterRef
@@ -21,7 +19,7 @@ class OrmqlDialect(Dialect):
 
     class Tokenizer(Tokenizer):
         QUOTES = ["'", '"']
-        IDENTIFIERS = ["`"]  # todo tests
+        IDENTIFIERS = ["`"]
 
         KEYWORDS = {
             "==": TokenType.EQ,
@@ -36,9 +34,9 @@ class OrmqlDialect(Dialect):
             "AS": TokenType.ALIAS,
             "BETWEEN": TokenType.BETWEEN,
             "CASE": TokenType.CASE,
-            "CURRENT_DATE": TokenType.CURRENT_DATE,  # todo tests
-            "CURRENT_TIME": TokenType.CURRENT_TIME,  # todo tests
-            "CURRENT_TIMESTAMP": TokenType.CURRENT_TIMESTAMP,  # todo tests
+            "CURRENT_DATE": TokenType.CURRENT_DATE,
+            "CURRENT_TIME": TokenType.CURRENT_TIME,
+            "CURRENT_TIMESTAMP": TokenType.CURRENT_TIMESTAMP,
             "DESC": TokenType.DESC,
             "DISTINCT": TokenType.DISTINCT,
             "ELSE": TokenType.ELSE,
@@ -78,10 +76,9 @@ class OrmqlDialect(Dialect):
             # "JSON": TokenType.JSON,
             # "JSONB": TokenType.JSONB,
             "TEXT": TokenType.TEXT,
-            "TIME": TokenType.TIME,  # todo tests
-            "TIMESTAMPTZ": TokenType.TIMESTAMPTZ,  # todo tests
-            "DATE": TokenType.DATE,  # todo tests
-            "DATETIME": TokenType.DATETIME,  # todo tests
+            "TIME": TokenType.TIME,
+            "DATE": TokenType.DATE,
+            "DATETIME": TokenType.DATETIME,
         }
 
     class Generator(Generator):
@@ -150,14 +147,15 @@ types = {
     expressions.DataType.Type.TIME: models.TimeField(),
     expressions.DataType.Type.TIMESTAMPTZ: models.DateTimeField(),
     expressions.DataType.Type.DATETIME: models.DateTimeField(),
-    expressions.DataType.Type.DATE: models.DateTimeField(),
+    expressions.DataType.Type.DATE: models.DateField(),
 }
 
 
 class Query:
-    def __init__(self, sql, tables):
+    def __init__(self, sql, tables, timezone):
         self.sql = sql
         self.tables = tables
+        self.timezone = timezone
 
     def _to_column_path(self, expression):
         """
@@ -229,7 +227,7 @@ class Query:
             return functions.Extract(
                 self._expression_to_django(expression.expression, **kwargs),
                 lookup_name=lookup_name,
-                tzinfo=timezone.utc,  # todo: make configurable
+                tzinfo=self.timezone,
             )
         elif isinstance(expression, expressions.Anonymous) and expression.this.lower() == "datetrunc":
             if len(expression.expressions) != 2:
@@ -244,7 +242,7 @@ class Query:
             return functions.Trunc(
                 self._expression_to_django(expression.expressions[1], **kwargs),
                 lookup_name,
-                tzinfo=timezone.utc,  # todo: make configurable
+                tzinfo=self.timezone,
             )
         elif type(expression) in function_nodes:
             if expression.args.get("this"):
@@ -437,6 +435,12 @@ class Query:
                 *whens,
                 default=default
             )
+        elif isinstance(expression, expressions.CurrentDate):
+            return functions.TruncDate(functions.Now(), tzinfo=self.timezone)
+        elif isinstance(expression, expressions.CurrentTime):
+            return functions.TruncTime(functions.Now(), tzinfo=self.timezone)
+        elif isinstance(expression, expressions.CurrentTimestamp):
+            return functions.Now()
         elif isinstance(expression, expressions.Subquery):
             if not isinstance(expression.this, expressions.Select):
                 raise QueryNotSupported("Only SELECT subqueries are supported")
@@ -512,7 +516,8 @@ class Query:
                 while n in values_names or n in aggregations:
                     n += "_"
 
-                # TODO validate that everything is an aggregate, part of the grouping, or a literal
+                # TODO We sould validate that everything selected in a GROUP BY query is either an aggregate, part of
+                # the grouping, or a literal. However, I have not found a safe way to validate yet and it's not a big deal.
                 django_e = self._expression_to_django(e, table=table, aggregate_names=[], parent_table_stack=parent_table_stack)
                 if isinstance(django_e, aggregates.Aggregate):
                     # We do not use the alias names given by the user, first to ensure uniqueness, but also Django has
@@ -555,8 +560,14 @@ class Query:
             if len(values_args) + len(aggregations) != 1:
                 raise QueryError("Subquery must return exactly 1 column")
 
+        if group_args and not aggregations:
+            # Django will not do proper group by without any aggregations, so we need to do trickery
+            aggregations = {
+                "_grp_trick": models.Count("*")
+            }
+
         if aggregations:
-            if group_args:  # todo what happens if we have group without aggregates?
+            if group_args:
                 qs = qs.order_by().annotate(**{
                     f"grp{i}": v for i, v in enumerate(group_args)
                 }, **values_args).values(*[

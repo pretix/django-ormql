@@ -1,12 +1,14 @@
 import datetime
+import zoneinfo
 from decimal import Decimal
 
 import pytest
-import pytz
 from django.conf import settings
-from freezegun import freeze_time
+from django.utils.timezone import now
 
-from django_ormql.exceptions import QueryNotSupported, QueryError
+from django_ormql.exceptions import QueryError
+
+tz_ny = zoneinfo.ZoneInfo("America/New_York")
 
 
 @pytest.mark.django_db
@@ -76,6 +78,12 @@ def test_simple_math(engine_t1, expr, result):
     ("single_price::BOOL", True),
     ("CAST(single_price AS BOOLEAN)", True),
     ("single_price::BOOLEAN", True),
+    ("CAST(order.created AS DATETIME)", datetime.datetime(2024, 12, 14, 2, 13, 14, tzinfo=datetime.timezone.utc)),
+    ("order.created::DATETIME", datetime.datetime(2024, 12, 14, 2, 13, 14, tzinfo=datetime.timezone.utc)),
+    ("CAST(order.created AS DATE)", datetime.date(2024, 12, 14)),
+    ("order.created::DATE", datetime.date(2024, 12, 14)),
+    ("CAST(order.created AS TIME)", datetime.time(2, 13, 14)),
+    ("order.created::TIME", datetime.time(2, 13, 14)),
 ])
 def test_cast(engine_t1, expr, result):
     if isinstance(result, bool) and 'sqlite' in settings.DATABASES['default']['ENGINE']:
@@ -188,23 +196,21 @@ def test_case_base_when_no_else(engine_t1):
     ("EXTRACT(WEEK_DAY FROM order.created)", 7),
     ("EXTRACT('iso_week_day' FROM order.created)", 6),
     ("EXTRACT(ISO_WEEK_DAY FROM order.created)", 6),
-    ("EXTRACT('hour' FROM order.created)", 11),
-    ("EXTRACT(HOUR FROM order.created)", 11),
+    ("EXTRACT('hour' FROM order.created)", 2),
+    ("EXTRACT(HOUR FROM order.created)", 2),
     ("EXTRACT('minute' FROM order.created)", 13),
     ("EXTRACT(MINUTE FROM order.created)", 13),
     ("EXTRACT('second' FROM order.created)", 14),
     ("EXTRACT(SECOND FROM order.created)", 14),
-    # TODO: test timezone support
     ("DATETRUNC('year', order.created)", datetime.datetime(2024, 1, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)),
     ("DATETRUNC('quarter', order.created)", datetime.datetime(2024, 10, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)),
     ("DATETRUNC('month', order.created)", datetime.datetime(2024, 12, 1, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)),
     ("DATETRUNC('day', order.created)", datetime.datetime(2024, 12, 14, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)),
     ("DATETRUNC('week', order.created)", datetime.datetime(2024, 12, 9, 0, 0, 0, 0, tzinfo=datetime.timezone.utc)),
-    ("DATETRUNC('hour', order.created)", datetime.datetime(2024, 12, 14, 11, 0, 0, 0, tzinfo=datetime.timezone.utc)),
-    ("DATETRUNC('minute', order.created)", datetime.datetime(2024, 12, 14, 11, 13, 0, 0, tzinfo=datetime.timezone.utc)),
+    ("DATETRUNC('hour', order.created)", datetime.datetime(2024, 12, 14, 2, 0, 0, 0, tzinfo=datetime.timezone.utc)),
+    ("DATETRUNC('minute', order.created)", datetime.datetime(2024, 12, 14, 2, 13, 0, 0, tzinfo=datetime.timezone.utc)),
     ("DATETRUNC('second', order.created)",
-     datetime.datetime(2024, 12, 14, 11, 13, 14, 0, tzinfo=datetime.timezone.utc)),
-    # TODO: test timezone support
+     datetime.datetime(2024, 12, 14, 2, 13, 14, 0, tzinfo=datetime.timezone.utc)),
 
     # String functions
     ("CONCAT(product.title, ' for ', order.customer.name)", "Lord of the rings DVD for CA"),
@@ -274,3 +280,65 @@ def test_functions_wrong_arity(engine_t1, expr):
             WHERE quantity = 3
             """
         ))
+
+
+@pytest.mark.django_db
+def test_current_date(engine_t1):
+    res = list(engine_t1.query(
+        f"""
+        SELECT CURRENT_DATE AS d
+        FROM orderpositions
+        WHERE quantity = 3
+        """
+    ))
+    assert type(res[0]["d"]) == datetime.date
+    assert abs(now().date() - res[0]["d"]) < datetime.timedelta(days=1)
+
+
+@pytest.mark.django_db
+def test_current_datetime(engine_t1):
+    res = list(engine_t1.query(
+        f"""
+        SELECT CURRENT_TIMESTAMP AS d
+        FROM orderpositions
+        WHERE quantity = 3
+        """
+    ))
+    assert type(res[0]["d"]) == datetime.datetime
+    assert abs(now() - res[0]["d"]) < datetime.timedelta(minutes=1)
+
+
+@pytest.mark.django_db
+def test_current_time(engine_t1):
+    res = list(engine_t1.query(
+        f"""
+        SELECT CURRENT_TIME AS d
+        FROM orderpositions
+        WHERE quantity = 3
+        """
+    ))
+    assert type(res[0]["d"]) == datetime.time
+    assert now().astimezone(datetime.timezone.utc).time().minute == res[0]["d"].minute
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("expr,result", [
+    ("EXTRACT('day' FROM order.created)", 13),
+    ("EXTRACT('hour' FROM order.created)", 21),
+    ("EXTRACT('minute' FROM order.created)", 13),
+    ("DATETRUNC('day', order.created)", datetime.datetime(2024, 12, 13, 0, 0, 0, 0, tzinfo=tz_ny)),
+    ("DATETRUNC('hour', order.created)", datetime.datetime(2024, 12, 13, 21, 0, 0, 0, tzinfo=tz_ny)),
+    ("DATETRUNC('minute', order.created)", datetime.datetime(2024, 12, 13, 21, 13, 0, 0, tzinfo=tz_ny)),
+])
+def test_functions_with_timezone(engine_t1, expr, result):
+    res = engine_t1.query(
+        f"""
+        SELECT single_price, quantity, {expr} AS result
+        FROM orderpositions
+        WHERE quantity = 3
+        """,
+        timezone=tz_ny
+    )
+    assert list(res) == [
+        {"single_price": Decimal("19.00"), "quantity": 3, "result": result},
+    ]

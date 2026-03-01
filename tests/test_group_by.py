@@ -16,13 +16,12 @@ def test_group_by_simple(engine_t1):
     )
     assert list(res) == [
         {"title": "Lord of the rings"},
-        {"title": "SQL for Dummies"},
         {"title": "Lord of the rings DVD"},
+        {"title": "SQL for Dummies"},
     ]
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="TODO Not probably implemented, possibly impossible in Django")
 def test_group_by_foreignkey(engine_t1):
     res = engine_t1.query(
         """
