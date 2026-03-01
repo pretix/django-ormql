@@ -3,6 +3,7 @@ import logging
 from django.db import models
 from django.db.models import F, Value, Q, ExpressionWrapper, BooleanField, aggregates, OrderBy, functions, lookups, \
     OuterRef
+from django.db.models.fields.json import KeyTransform
 from django.db.models.functions import Cast
 from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator, ParseError
 from sqlglot import expressions
@@ -33,6 +34,7 @@ class OrmqlDialect(Dialect):
             "<>": TokenType.NEQ,
             "!=": TokenType.NEQ,
             "||": TokenType.DPIPE,
+            "->": TokenType.ARROW,
             "AND": TokenType.AND,
             "ASC": TokenType.ASC,
             "AS": TokenType.ALIAS,
@@ -77,8 +79,7 @@ class OrmqlDialect(Dialect):
             "DECIMAL": TokenType.DECIMAL,
             "FLOAT": TokenType.FLOAT,
             "DOUBLE": TokenType.DOUBLE,
-            # "JSON": TokenType.JSON,
-            # "JSONB": TokenType.JSONB,
+            "JSONB": TokenType.JSONB,
             "TEXT": TokenType.TEXT,
             "TIME": TokenType.TIME,
             "DATE": TokenType.DATE,
@@ -467,6 +468,11 @@ class Query:
             if expression.name not in self.placeholders:
                 raise QueryError(f"Placeholder '{expression.name}' not filled")
             return Value(self.placeholders[expression.name])
+        elif isinstance(expression, expressions.JSONExtract):
+            return KeyTransform(
+                expression.expression.this.this,
+                self._expression_to_django(expression.this, **kwargs),
+            )
         else:
             raise QueryNotSupported(f"Unsupported expression: {expression.sql()}")
 

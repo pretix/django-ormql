@@ -51,6 +51,7 @@ class CustomerTable(ModelTable):
             "name",
             "email",
             "active",
+            "address",
         ]
 
 

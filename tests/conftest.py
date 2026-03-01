@@ -75,7 +75,17 @@ def dataset1():
     )
 
     # Customers
-    t1_c_active = CustomerFactory.create(tenant=t1, name="CA")
+    t1_c_active = CustomerFactory.create(tenant=t1, name="CA", address={
+        "city": {
+            "name": "Heidelberg",
+            "state": {
+                "code": "BW",
+                "country": {
+                    "code": "DE"
+                }
+            }
+        }
+    })
     t1_c_inactive = CustomerFactory.create(tenant=t1, active=False, name="CB")
     t2_c = CustomerFactory.create(tenant=t2, name="CC")
 

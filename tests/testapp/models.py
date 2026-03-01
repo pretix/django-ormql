@@ -34,6 +34,7 @@ class Customer(models.Model):
     email = models.EmailField()
     active = models.BooleanField(default=False)
     password_hash = models.CharField(max_length=250)
+    address = models.JSONField(default=dict)
 
 
 class Order(models.Model):
