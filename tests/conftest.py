@@ -85,8 +85,8 @@ def dataset1():
                 }
             }
         }
-    })
-    t1_c_inactive = CustomerFactory.create(tenant=t1, active=False, name="CB")
+    }, email="ca1@example.com")
+    t1_c_inactive = CustomerFactory.create(tenant=t1, active=False, name="CB", email="cb2@example.com")
     t2_c = CustomerFactory.create(tenant=t2, name="CC")
 
     # Orders

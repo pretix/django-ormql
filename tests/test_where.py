@@ -383,3 +383,17 @@ def test_where_in_complex_lhs(engine_t1):
     assert list(res) == [
         {"title": "Lord of the rings"},
     ]
+
+
+@pytest.mark.django_db
+def test_aliased_column(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT name
+        FROM customers
+        WHERE enabled IS TRUE
+        """
+    )
+    assert list(res) == [
+        {"name": "CA"},
+    ]

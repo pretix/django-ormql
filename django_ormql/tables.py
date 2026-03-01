@@ -2,6 +2,7 @@ import copy
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import models
+from django.db.models import F
 from django.utils.functional import cached_property
 from rest_framework.utils import model_meta
 from rest_framework.utils.field_mapping import ClassLookupDict
@@ -210,16 +211,12 @@ class ModelTable(Table):
         return column_class, column_kwargs
 
     def resolve_column_path(self, column_path):
+        for c in column_path:
+            if "__" in c:
+                raise QueryError("Cannot use __ in column path")
         column_name = column_path[0]
         if column_name not in self.columns:
             raise QueryError(f"Column '{column_path[0]}' does not exist in table '{self.Meta.name}'.")
 
         column = self.columns[column_name]
-        if isinstance(column, ForeignKeyColumn):
-            rt = column.related_table()
-            if len(column_path) > 1:
-                related_field = rt.resolve_column_path(column_path[1:])
-            else:
-                related_field = "pk"
-            return '__'.join([column.source, related_field])
-        return column.source
+        return column.resolve_column_path(column_path[1:])

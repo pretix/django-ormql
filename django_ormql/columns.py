@@ -1,13 +1,20 @@
+from ansible_collections.community.general.plugins.modules.xml import children_to_nodes
+from django.db.models import F, Expression
+from django.utils import tree
+
+
 class BaseColumn:
     def __init__(self, **kwargs):
         self.source = kwargs.get('source')
-        pass
 
     def bind(self, field_name, parent):
         self.field_name = field_name
         self.parent = parent
         if self.source is None:
             self.source = field_name
+
+    def resolve_column_path(self, remaining_path):
+        return F(self.source)
 
 
 class NumericColumn(BaseColumn):
@@ -50,7 +57,58 @@ class ModelColumn(BaseColumn):
 class ForeignKeyColumn(BaseColumn):
     def __init__(self, related_table, **kwargs):
         self.related_table = related_table
-        self.source = kwargs.get('source')
+        super().__init__(**kwargs)
+
+    def _prefix_expression(self, expr, prefix):
+        if isinstance(expr, tree.Node):
+            children = []
+            for e in expr.children:
+                e = self._prefix_expression(e, prefix)
+                if isinstance(e, F):
+                    e = F(f"{prefix}__{expr}")
+                children.append(e)
+            expr.children = children
+        elif isinstance(expr, Expression):
+            source_expressions = []
+            for e in expr.get_source_expressions():
+                e = self._prefix_expression(e, prefix)
+                source_expressions.append(e)
+            expr.set_source_expressions(source_expressions)
+        elif isinstance(expr, tuple) and len(expr) == 2:
+            # kwarg of Q()
+            return f"{prefix}__{expr[0]}", expr[1]
+        elif isinstance(expr, F):
+            print(f"{prefix}__{expr.name}")
+            return F(f"{prefix}__{expr.name}")
+        else:
+            raise TypeError(f"Unexpected type {expr!r}")
+        return expr
+
+    def resolve_column_path(self, remaining_path):
+        rt = self.related_table()
+        if remaining_path:
+            related_field = rt.resolve_column_path(remaining_path)
+
+            if isinstance(related_field, F):
+                return F('__'.join([self.source, related_field.name]))
+
+            elif isinstance(related_field, (Expression, tree.Node)):
+                self._prefix_expression(related_field, self.source)
+                return related_field
+
+            else:
+                raise TypeError(f"Unexpected type {type(related_field)}")
+        else:
+            return F('__'.join([self.source, "pk"]))
+
+
+class GeneratedColumn(BaseColumn):
+    def __init__(self, expr, **kwargs):
+        self.expr = expr
+        super().__init__(**kwargs)
+
+    def resolve_column_path(self, remaining_path):
+        return self.expr
 
 
 def get_column_kwargs(model_field):

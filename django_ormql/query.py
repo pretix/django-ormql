@@ -190,7 +190,7 @@ class Query:
             cp = self._to_column_path(expression)
             if len(cp) == 1 and aggregate_names and cp[0] in aggregate_names:
                 return F(aggregate_names[cp[0]])
-            return F(table.resolve_column_path(cp))
+            return table.resolve_column_path(cp)
         elif isinstance(expression, expressions.Anonymous) and expression.this.lower() == "outer":
             def _resolve(e, parent_stack, depth):
                 if isinstance(e, expressions.Anonymous) and e.this.lower() == "outer":
@@ -206,6 +206,10 @@ class Query:
 
             cp, lookup_table, depth = _resolve(expression.expressions[0], parent_table_stack, 1)
             p = lookup_table.resolve_column_path(cp)
+            if isinstance(p, F):
+                p = p.name
+            else:
+                raise QueryNotSupported(f"Cannot use '{cp}' in OUTER()")
             for i in range(depth):
                 p = OuterRef(p)
             return p
@@ -635,7 +639,7 @@ class Query:
         except ParseError as e:
             raise QueryNotSupported(str(e)) from e
 
-        logger.debug(f"Parsed statement: {ast!r}")
+        print(f"Parsed statement: {ast!r}")
 
         if not isinstance(ast, expressions.Select):
             raise QueryNotSupported("Only SELECT queries are supported")
@@ -648,7 +652,7 @@ class Query:
                 for k, v in qs.items()
             }
         else:
-            logger.debug(f"Generated statement: {qs.query!r}")
+            print(f"Generated statement: {qs.query!s}")
             for row in qs:
                 yield {
                     values_names[k]: v

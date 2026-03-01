@@ -1,6 +1,9 @@
+from django.db.models import Case, When, Value, F
+from django.db.models.functions import Upper
+
 from django_ormql.engine import QueryEngine
 from django_ormql.tables import ModelTable
-from django_ormql.columns import ForeignKeyColumn
+from django_ormql.columns import ForeignKeyColumn, GeneratedColumn, ModelColumn
 from .models import Category, Tag, Product, Customer, Order, OrderPosition
 
 
@@ -43,6 +46,8 @@ class ProductTable(ModelTable):
 
 
 class CustomerTable(ModelTable):
+    enabled = ModelColumn(source="active")
+
     class Meta:
         name = "customers"
         model = Customer
@@ -50,13 +55,26 @@ class CustomerTable(ModelTable):
             "id",
             "name",
             "email",
-            "active",
+            "enabled",
             "address",
         ]
 
 
 class OrderTable(ModelTable):
     customer = ForeignKeyColumn(CustomerTable)
+    validity = GeneratedColumn(
+        Case(
+            When(status__in=("new", "paid"), then=Value("valid")),
+            default=Value("invalid")
+        )
+    )
+    email = GeneratedColumn(
+        F("customer__email")
+    )
+    email_upper = GeneratedColumn(
+        Upper(F("customer__email"))
+    )
+    static_value = GeneratedColumn(Value(2))
 
     class Meta:
         name = "orders"
@@ -66,6 +84,10 @@ class OrderTable(ModelTable):
             "customer",
             "created",
             "status",
+            "validity",
+            "email",
+            "email_upper",
+            "static_value",
         ]
 
 
