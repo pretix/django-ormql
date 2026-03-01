@@ -1,3 +1,5 @@
+import logging
+
 from django.db import models
 from django.db.models import F, Value, Q, ExpressionWrapper, BooleanField, aggregates, OrderBy, functions, lookups, \
     OuterRef
@@ -8,6 +10,8 @@ from sqlglot import expressions
 from . import db_func
 from .db_func import NumericAwareCase
 from .exceptions import QueryNotSupported, QueryError
+
+logger = logging.getLogger(__name__)
 
 
 class OrmqlDialect(Dialect):
@@ -152,10 +156,11 @@ types = {
 
 
 class Query:
-    def __init__(self, sql, tables, timezone):
+    def __init__(self, sql, tables, placeholders, timezone):
         self.sql = sql
         self.tables = tables
         self.timezone = timezone
+        self.placeholders = placeholders or {}
 
     def _to_column_path(self, expression):
         """
@@ -253,7 +258,6 @@ class Query:
                 args += [self._expression_to_django(expression.expression, **kwargs)]
             args += [self._expression_to_django(e, **kwargs) for e in expression.expressions]
             cls = function_nodes[type(expression)]
-            print(cls, cls.arity, args)
             if (cls.arity and cls.arity != len(args)) or any(v is not None and k not in ("this", "expression", "expressions", "ignore_nulls", "safe", "coalesce") for k, v in expression.args.items()):
                 raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
             return cls(*args)
@@ -459,6 +463,10 @@ class Query:
                 parent_table_stack=parent_table_stack + [table]
             )
             return models.Exists(qs)
+        elif isinstance(expression, expressions.Placeholder):
+            if expression.name not in self.placeholders:
+                raise QueryError(f"Placeholder '{expression.name}' not filled")
+            return Value(self.placeholders[expression.name])
         else:
             raise QueryNotSupported(f"Unsupported expression: {expression.sql()}")
 
@@ -621,7 +629,7 @@ class Query:
         except ParseError as e:
             raise QueryNotSupported(str(e)) from e
 
-        print(repr(ast))
+        logger.debug(f"Parsed statement: {ast!r}")
 
         if not isinstance(ast, expressions.Select):
             raise QueryNotSupported("Only SELECT queries are supported")
@@ -634,7 +642,7 @@ class Query:
                 for k, v in qs.items()
             }
         else:
-            print(qs, qs.query)
+            logger.debug(f"Generated statement: {qs.query!r}")
             for row in qs:
                 yield {
                     values_names[k]: v
