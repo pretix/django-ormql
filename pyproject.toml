@@ -38,6 +38,7 @@ dev = [
     "pytest-cov",
     "django<6.0",
     "factory_boy==3.*",
+    "freezegun",
 ]
 
 [tool.setuptools.dynamic]

@@ -186,3 +186,14 @@ def test_binary_operator_not_allowed(engine_t1):
             FROM products
             """
         ))
+
+
+@pytest.mark.django_db
+def test_unsupported_function(engine_t1):
+    with pytest.raises(QueryError, match="Unsupported expression: SIN\\(3\\)"):
+        list(engine_t1.query(
+            """
+            SELECT Sin(3)
+            FROM products
+            """
+        ))

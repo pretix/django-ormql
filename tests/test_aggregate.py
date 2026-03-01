@@ -93,3 +93,22 @@ def test_aggregate_order_by_unsupported(engine_t1):
             FROM products
             """
         ))
+
+
+@pytest.mark.django_db
+def test_aggregate_functions(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT COUNT(*), AVG(price), MAX(price), min(price), stddev(price), VARIANCE(price), SUM(price)
+        FROM products
+        """
+    )
+    assert list(res) == [
+        {'COUNT(*)': 3,
+         'AVG(price)': Decimal('17.0333333333333'),
+         'MAX(price)': Decimal('21.4000000000000'),
+         'MIN(price)': Decimal('10.7000000000000'),
+         'STDDEV(price)': Decimal('4.58427263102398'),
+         'VARIANCE(price)': Decimal('21.0155555555556'),
+         'SUM(price)': Decimal('51.1000000000000')}
+    ]

@@ -127,6 +127,17 @@ def test_case_sensitive(engine_t1):
 
 
 @pytest.mark.django_db
+def test_invalid_table(engine_t1):
+    with pytest.raises(QueryError, match="Table foo not found"):
+        list(engine_t1.query(
+            """
+            SELECT a
+            FROM foo
+            """
+        ))
+
+
+@pytest.mark.django_db
 def test_multiple_tables_not_allowed(engine_t1):
     with pytest.raises(QueryNotSupported, match="SELECT from multiple tables not supported"):
         list(engine_t1.query(

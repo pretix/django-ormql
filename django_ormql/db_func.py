@@ -1,5 +1,5 @@
 from django.core.exceptions import FieldError
-from django.db.models import Func, fields, Value, ExpressionWrapper
+from django.db.models import Func, fields, Value, ExpressionWrapper, Case
 
 
 class Equal(Func):
@@ -52,7 +52,7 @@ class Like(Func):
     function = ''
 
 
-class NumericFunc(Func):
+class NumericResolveMixin:
 
     def _resolve_output_field(self):
         # Auto-resolve of INT*DECIMAL to DECIMAL etc
@@ -87,25 +87,25 @@ class NumericFunc(Func):
             )
 
 
-class Add(NumericFunc):
+class Add(NumericResolveMixin, Func):
     arg_joiner = ' + '
     arity = 2
     function = ''
 
 
-class Sub(NumericFunc):
+class Sub(NumericResolveMixin, Func):
     arg_joiner = ' - '
     arity = 2
     function = ''
 
 
-class Mul(NumericFunc):
+class Mul(NumericResolveMixin, Func):
     arg_joiner = ' * '
     arity = 2
     function = ''
 
 
-class Div(NumericFunc):
+class Div(NumericResolveMixin, Func):
     arg_joiner = ' / '
     arity = 2
     function = ''
@@ -120,7 +120,11 @@ class Div(NumericFunc):
         )
 
 
-class Mod(NumericFunc):
+class Mod(NumericResolveMixin, Func):
     arg_joiner = ' %% '
     arity = 2
     function = ''
+
+
+class NumericAwareCase(NumericResolveMixin, Case):
+    pass

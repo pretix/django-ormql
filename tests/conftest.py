@@ -2,6 +2,7 @@ import os
 from decimal import Decimal
 
 import pytest
+from freezegun import freeze_time
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tests.settings")
 
@@ -16,6 +17,7 @@ from .testapp.ormql import engine_for_tenant
 
 
 @pytest.fixture
+@freeze_time("2024-12-14 12:13:14+01:00")
 def dataset1():
     # Tenants
     t1 = TenantFactory.create()
