@@ -95,7 +95,7 @@ type-name: BOOL[EAN] | [BIG]INT | DECIMAL | FLOAT | DOUBLE | JSONB | TEXT | TIME
 
 - `GREATEST(expr, expr)`
 - `LEAST(expr, expr)`
-- `ABS(expr, expr)`
+- `ABS(expr)`
 - `CEIL(expr[, scale])`
 - `FLOOR(expr[, scale])`
 - `ROUND(expr[, scale])`
