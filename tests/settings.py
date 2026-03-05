@@ -42,15 +42,38 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "tests.testapp.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
-        "TEST": {
-            "NAME": ":memory:",
-        },
+os.environ.setdefault("TOXDB", "sqlite")
+if os.environ['TOXDB'] == 'postgres':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'testapp',
+            'USER': 'raphael',
+            'PASSWORD': '',
+            'HOST': 'localhost'
+        }
     }
-}
+elif os.environ['TOXDB'] in ('mysql', 'mariadb'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'testapp',
+            'USER': 'root',
+            'PASSWORD': '',
+            'HOST': 'mariadb',
+            'PORT': 3306
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+            "TEST": {
+                "NAME": ":memory:",
+            },
+        }
+    }
 
 STATIC_URL = "/static/"
 

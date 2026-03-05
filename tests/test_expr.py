@@ -1,4 +1,5 @@
 import datetime
+import re
 import zoneinfo
 from decimal import Decimal
 
@@ -31,8 +32,8 @@ tz_ny = zoneinfo.ZoneInfo("America/New_York")
         ("single_price * 10.5", Decimal("199.5")),
         ("single_price * quantity", Decimal("57.0")),
         ("single_price / 10", Decimal("1.90")),
-        ("single_price / 10.5", Decimal("1.80952380952381")),
-        ("single_price / quantity", Decimal("6.33333333333333")),
+        ("ROUND(single_price / 10.5, 2)", Decimal("1.81")),
+        ("ROUND(single_price / quantity, 2)", Decimal("6.33")),
         ("single_price % 3", Decimal("1.00")),
         ("single_price % 3.0", Decimal("1.00")),
         ("single_price % quantity", Decimal("1.00")),
@@ -69,8 +70,8 @@ def test_simple_math(engine_t1, expr, result):
 @pytest.mark.parametrize(
     "expr,result",
     [
-        ("CAST(single_price AS TEXT)", "19"),
-        ("single_price::TEXT", "19"),
+        ("CAST(single_price AS TEXT)", re.compile("19(\.00)?")),
+        ("single_price::TEXT", re.compile("19(\.00)?")),
         ("CAST(single_price AS INT)", 19),
         ("single_price::INT", 19),
         ("CAST(single_price AS BIGINT)", 19),
@@ -81,10 +82,10 @@ def test_simple_math(engine_t1, expr, result):
         ("single_price::FLOAT", 19.00),
         ("CAST(single_price AS DOUBLE)", 19.00),
         ("single_price::DOUBLE", 19.00),
-        ("CAST(single_price AS BOOL)", True),
-        ("single_price::BOOL", True),
-        ("CAST(single_price AS BOOLEAN)", True),
-        ("single_price::BOOLEAN", True),
+        ("CAST(single_price > 0 AS BOOL)", True),
+        ("(single_price > 0)::BOOL", True),
+        ("CAST(single_price > 0 AS BOOLEAN)", True),
+        ("(single_price > 0)::BOOLEAN", True),
         (
             "CAST(order.created AS DATETIME)",
             datetime.datetime(2024, 12, 14, 2, 13, 14, tzinfo=datetime.timezone.utc),
@@ -110,9 +111,12 @@ def test_cast(engine_t1, expr, result):
         WHERE quantity = 3
         """
     )
-    assert list(res) == [
-        {"single_price": Decimal("19.00"), "quantity": 3, "result": result},
-    ]
+    if isinstance(result, re.Pattern):
+        assert result.match(list(res)[0]["result"])
+    else:
+        assert list(res) == [
+            {"single_price": Decimal("19.00"), "quantity": 3, "result": result},
+        ]
 
 
 @pytest.mark.django_db

@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from django_ormql.exceptions import QueryError
+from django_ormql.exceptions import QueryError, QueryNotSupported
 
 
 @pytest.mark.django_db
@@ -66,14 +66,14 @@ def test_aggregate_distinct(engine_t1):
 
 
 @pytest.mark.django_db
-def test_aggregate_distinct_multiple(engine_t1):
-    res = engine_t1.query(
-        """
-        SELECT COUNT(DISTINCT title, tax_rate)
-        FROM products
-        """
-    )
-    assert list(res) == [{"COUNT(DISTINCT title, tax_rate)": 3}]
+def test_aggregate_distinct_multiple_not_supported(engine_t1):
+    with pytest.raises(QueryNotSupported, match="Multiple arguments to aggregate expression not supported"):
+        list(engine_t1.query(
+            """
+            SELECT COUNT(DISTINCT title, tax_rate)
+            FROM products
+            """
+        ))
 
 
 @pytest.mark.django_db
@@ -97,15 +97,15 @@ def test_aggregate_functions(engine_t1):
         FROM products
         """
     )
-    assert list(res) == [
+    assert [{k: round(v, 2) for k, v in row.items()} for row in res] == [
         {
             "COUNT(*)": 3,
-            "AVG(price)": Decimal("17.0333333333333"),
-            "MAX(price)": Decimal("21.4000000000000"),
-            "MIN(price)": Decimal("10.7000000000000"),
-            "STDDEV(price)": Decimal("4.58427263102398"),
-            "VARIANCE(price)": Decimal("21.0155555555556"),
-            "SUM(price)": Decimal("51.1000000000000"),
+            "AVG(price)": Decimal("17.03"),
+            "MAX(price)": Decimal("21.40"),
+            "MIN(price)": Decimal("10.70"),
+            "STDDEV(price)": Decimal("4.58"),
+            "VARIANCE(price)": Decimal("21.02"),
+            "SUM(price)": Decimal("51.10"),
         }
     ]
 

@@ -3,10 +3,8 @@ import copy
 from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.utils.functional import cached_property
-from rest_framework.utils import model_meta
-from rest_framework.utils.field_mapping import ClassLookupDict
-from rest_framework.utils.serializer_helpers import BindingDict
 
+from . import model_utils
 from .columns import (
     BaseColumn,
     get_column_kwargs,
@@ -111,7 +109,7 @@ class ModelTable(Table):
         """
         A dictionary of {column_name: column_instance}.
         """
-        fields = BindingDict(self)
+        fields = model_utils.BindingDict(self)
         for key, value in self.get_columns().items():
             fields[key] = value
         return fields
@@ -127,14 +125,14 @@ class ModelTable(Table):
                 table_class=self.__class__.__name__
             )
         )
-        if model_meta.is_abstract_model(self.Meta.model):
+        if model_utils.is_abstract_model(self.Meta.model):
             raise ValueError("Cannot use ModelSerializer with Abstract Models.")
 
         declared_columns = copy.deepcopy(self._declared_columns)
         model = getattr(self.Meta, "model")
 
         # Retrieve metadata about columns & relationships on the model class.
-        info = model_meta.get_field_info(model)
+        info = model_utils.get_field_info(model)
         column_names = self.get_column_names(declared_columns, info)
 
         # Determine the columns that should be included on the table.
@@ -212,7 +210,7 @@ class ModelTable(Table):
         )
 
     def build_standard_column(self, column_name, model_column):
-        column_mapping = ClassLookupDict(self.field_column_mapping)
+        column_mapping = model_utils.ClassLookupDict(self.field_column_mapping)
 
         column_class = column_mapping[model_column]
         column_kwargs = get_column_kwargs(model_column)

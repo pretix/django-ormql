@@ -36,9 +36,12 @@ dynamic = ["version"]
 dev = [
     "pytest==9.*",
     "pytest-cov",
+    "pytest-django",
+    "psycopg2-binary",
     "django<6.0",
     "factory_boy==3.*",
     "freezegun",
+    "ruff",
 ]
 
 [tool.setuptools.dynamic]

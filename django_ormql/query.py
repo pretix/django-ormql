@@ -437,6 +437,8 @@ class Query:
             else:
                 args = [self._expression_to_django(expression.this.this, **kwargs)]
                 distinct = False
+            if len(args) > 1:
+                raise QueryNotSupported("Multiple arguments to aggregate expression not supported")
             return aggregate_nodes[type(expression.this)](
                 *args,
                 distinct=distinct,
@@ -452,6 +454,8 @@ class Query:
             else:
                 args = [self._expression_to_django(expression.this, **kwargs)]
                 distinct = False
+            if len(args) > 1:
+                raise QueryNotSupported("Multiple arguments to aggregate expression not supported")
             return aggregate_nodes[type(expression)](*args, distinct=distinct)
         elif type(expression) in math_binary_nodes:
             lhs = self._expression_to_django(expression.left, **kwargs)

@@ -1,0 +1,13 @@
+tests:
+  services:
+    - postgres:15
+    - mariadb:12.2
+  variables:
+    POSTGRES_PASSWORD: postgres
+    MYSQL_ALLOW_EMPTY_PASSWORD: 1
+  image:
+    name: python:3.14-trixie
+  before_script:
+    - pip install -U tox tox-uv
+  script:
+    - tox run
