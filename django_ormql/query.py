@@ -297,7 +297,7 @@ class Query:
                     raise QueryNotSupported(
                         f"Unsupported truncation type '{lookup_name}'"
                     )
-            except:
+            except ValueError:
                 raise QueryNotSupported("Unsupported truncation type")
             return functions.Trunc(
                 self._expression_to_django(expression.expressions[1], **kwargs),
