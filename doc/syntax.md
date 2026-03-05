@@ -72,6 +72,7 @@ type-name: BOOL[EAN] | [BIG]INT | DECIMAL | FLOAT | DOUBLE | JSONB | TEXT | TIME
 
 - String literals can be quited with `"` or `'`.
 - Column or table names can be escaped with <code>`</code>.
+- Column and table names are case-sensitive, syntax keywords are not.
 - Comments are supported with `--` at the start of the line or `/* comment */` syntax.
 - The result of comparisons between different types or with NULL depends on the underlying database.
 - Casting behaviour depends on the underlying database.
@@ -121,3 +122,53 @@ type-name: BOOL[EAN] | [BIG]INT | DECIMAL | FLOAT | DOUBLE | JSONB | TEXT | TIME
 ### Generic functions
 
 - `COALESCE(expr, expr)`
+
+## Examples
+
+### Automatic join usage
+
+```
+SELECT id, order.id, order.created, order.customer.email
+FROM orderpositions
+WHERE order.created > "2026-03-01"
+```
+
+### Subqueries
+
+```
+SELECT title
+FROM products
+WHERE EXISTS(SELECT 1 FROM orderpositions WHERE product = OUTER(id) AND order.status = "paid")
+```
+
+```
+SELECT title
+FROM products
+WHERE id IN (SELECT product FROM orderpositions WHERE order.status = "paid")
+```
+
+```
+SELECT id, (SELECT COUNT(*) FROM orders WHERE customer = OUTER(id)) AS order_cnt
+FROM customers
+```
+
+### Aggregation
+
+```
+SELECT
+    product,
+    COUNT(DISTINCT id) FILTER (WHERE order.status = "paid") AS paid,
+    COUNT(id) FILTER (WHERE order.status = "canceled") AS canceled,
+    COUNT(id) AS all
+FROM orderpositions
+GROUP BY product
+ORDER BY paid DESC
+```
+
+### JSON traversal
+
+```
+SELECT address->city->state AS state
+FROM customers
+WHERE name = "CA"
+```

@@ -28,7 +28,8 @@ When we allow our customers to create reports based on SQL queries, the SQL laye
 For a public API, customers expect API compatibility.
 This would basically mean freezing large parts of the data model of our application.
 We, however, would like to retain the option to change parts of our data model without impacting customers.
-To go one step further, we would also like to retain the option to change our database engine.
+You could probably solve that with database-level views, if you really wanted to.
+However, to go one step further, we would also like to retain the option to change our database engine.
 That we are using PostgreSQL and how our tables look like should be an implementation detail our customers do not need to care about.
 
 ## So what then?
