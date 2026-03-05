@@ -51,7 +51,9 @@ class CustomerFactory(DjangoModelFactory):
     name = factory.Sequence(lambda n: "Customer %d" % n)
     email = factory.Sequence(lambda n: "customer%d@example.com" % n)
     active = True
-    password_hash = factory.LazyFunction(lambda: hashlib.sha256(get_random_string(16).encode()).hexdigest())
+    password_hash = factory.LazyFunction(
+        lambda: hashlib.sha256(get_random_string(16).encode()).hexdigest()
+    )
 
     class Meta:
         model = Customer

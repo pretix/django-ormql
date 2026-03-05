@@ -2,15 +2,24 @@ import copy
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import models
-from django.db.models import F
 from django.utils.functional import cached_property
 from rest_framework.utils import model_meta
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework.utils.serializer_helpers import BindingDict
 
-from .columns import BaseColumn, get_column_kwargs, ModelColumn, NumericColumn, BooleanColumn, DateColumn, \
-    DateTimeColumn, \
-    DecimalColumn, DurationColumn, TimeColumn, TextColumn, ForeignKeyColumn
+from .columns import (
+    BaseColumn,
+    get_column_kwargs,
+    ModelColumn,
+    NumericColumn,
+    BooleanColumn,
+    DateColumn,
+    DateTimeColumn,
+    DecimalColumn,
+    DurationColumn,
+    TimeColumn,
+    TextColumn,
+)
 from .exceptions import QueryError
 
 
@@ -28,9 +37,11 @@ class TableMetaclass(type):
 
     @classmethod
     def _get_declared_columns(cls, bases, attrs):
-        columns = [(column_name, attrs.pop(column_name))
-                   for column_name, obj in list(attrs.items())
-                   if isinstance(obj, BaseColumn)]
+        columns = [
+            (column_name, attrs.pop(column_name))
+            for column_name, obj in list(attrs.items())
+            if isinstance(obj, BaseColumn)
+        ]
         # Ensures a base class column doesn't override cls attrs, and maintains
         # column precedence when inheriting multiple parents. e.g. if there is a
         # class C(A, B), and A and B both define 'column', use 'column' from A.
@@ -42,14 +53,16 @@ class TableMetaclass(type):
 
         base_columns = [
             (visit(name), f)
-            for base in bases if hasattr(base, '_declared_columns')
-            for name, f in base._declared_columns.items() if name not in known
+            for base in bases
+            if hasattr(base, "_declared_columns")
+            for name, f in base._declared_columns.items()
+            if name not in known
         ]
 
         return dict(base_columns + columns)
 
     def __new__(cls, name, bases, attrs):
-        attrs['_declared_columns'] = cls._get_declared_columns(bases, attrs)
+        attrs["_declared_columns"] = cls._get_declared_columns(bases, attrs)
         return super().__new__(cls, name, bases, attrs)
 
 
@@ -104,23 +117,21 @@ class ModelTable(Table):
         return fields
 
     def get_columns(self):
-        assert hasattr(self, 'Meta'), (
+        assert hasattr(self, "Meta"), (
             'Class {table_class} missing "Meta" attribute'.format(
                 table_class=self.__class__.__name__
             )
         )
-        assert hasattr(self.Meta, 'model'), (
+        assert hasattr(self.Meta, "model"), (
             'Class {table_class} missing "Meta.model" attribute'.format(
                 table_class=self.__class__.__name__
             )
         )
         if model_meta.is_abstract_model(self.Meta.model):
-            raise ValueError(
-                'Cannot use ModelSerializer with Abstract Models.'
-            )
+            raise ValueError("Cannot use ModelSerializer with Abstract Models.")
 
         declared_columns = copy.deepcopy(self._declared_columns)
-        model = getattr(self.Meta, 'model')
+        model = getattr(self.Meta, "model")
 
         # Retrieve metadata about columns & relationships on the model class.
         info = model_meta.get_field_info(model)
@@ -136,7 +147,9 @@ class ModelTable(Table):
                 continue
 
             column_class, column_kwargs = self.build_column(
-                column_name, info, model,
+                column_name,
+                info,
+                model,
             )
             columns[column_name] = column_class(**column_kwargs)
         return columns
@@ -148,11 +161,11 @@ class ModelTable(Table):
         set of columns, but also takes into account the `Meta.columns` or
         `Meta.exclude` options if they have been specified.
         """
-        columns = getattr(self.Meta, 'columns', None)
+        columns = getattr(self.Meta, "columns", None)
         if not isinstance(columns, (list, tuple)):
             raise TypeError(
                 'The `columns` option must be a list or tuple or "__all__". '
-                'Got %s.' % type(columns).__name__
+                "Got %s." % type(columns).__name__
             )
 
         # Ensure that all declared columns have also been included in the
@@ -163,15 +176,14 @@ class ModelTable(Table):
         # a subset of columns.
         required_column_names = set(declared_columns)
         for cls in self.__class__.__bases__:
-            required_column_names -= set(getattr(cls, '_declared_columns', []))
+            required_column_names -= set(getattr(cls, "_declared_columns", []))
 
         for column_name in required_column_names:
             assert column_name in columns, (
                 "The column '{column_name}' was declared on table "
                 "{table_class}, but has not been included in the "
                 "'columns' option.".format(
-                    column_name=column_name,
-                    table_class=self.__class__.__name__
+                    column_name=column_name, table_class=self.__class__.__name__
                 )
             )
         return columns
@@ -185,11 +197,18 @@ class ModelTable(Table):
             return self.build_standard_column(column_name, model_column)
 
         elif column_name in info.relations:
-            raise ImproperlyConfigured("Relational columns need to be defined explicitly.")
+            raise ImproperlyConfigured(
+                "Relational columns need to be defined explicitly."
+            )
 
         raise ImproperlyConfigured(
-            'Field name `%s` is not valid for model `%s` in `%s.%s`.' %
-            (column_name, model_class.__name__, self.__class__.__module__, self.__class__.__name__)
+            "Field name `%s` is not valid for model `%s` in `%s.%s`."
+            % (
+                column_name,
+                model_class.__name__,
+                self.__class__.__module__,
+                self.__class__.__name__,
+            )
         )
 
     def build_standard_column(self, column_name, model_column):
@@ -206,7 +225,7 @@ class ModelTable(Table):
             # `model_column` is only valid for the fallback case of
             # `ModelField`, which is used when no other typed column
             # matched to the model column.
-            column_kwargs.pop('model_column', None)
+            column_kwargs.pop("model_column", None)
 
         return column_class, column_kwargs
 
@@ -216,7 +235,9 @@ class ModelTable(Table):
                 raise QueryError("Cannot use __ in column path")
         column_name = column_path[0]
         if column_name not in self.columns:
-            raise QueryError(f"Column '{column_path[0]}' does not exist in table '{self.Meta.name}'.")
+            raise QueryError(
+                f"Column '{column_path[0]}' does not exist in table '{self.Meta.name}'."
+            )
 
         column = self.columns[column_name]
         return column.resolve_column_path(column_path[1:])

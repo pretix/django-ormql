@@ -1,9 +1,5 @@
-from decimal import Decimal
-
 import pytest
 from django.conf import settings
-
-from django_ormql.exceptions import QueryError
 
 
 @pytest.mark.django_db
@@ -320,8 +316,8 @@ def test_where_like(engine_t1):
 
 @pytest.mark.django_db
 def test_where_like_case_sensitive(engine_t1):
-    if 'sqlite' in settings.DATABASES['default']['ENGINE']:
-        pytest.skip('Not supported on SQLite')
+    if "sqlite" in settings.DATABASES["default"]["ENGINE"]:
+        pytest.skip("Not supported on SQLite")
     res = engine_t1.query(
         """
         SELECT title

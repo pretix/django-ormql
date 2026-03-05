@@ -1,8 +1,18 @@
 import logging
 
 from django.db import models
-from django.db.models import F, Value, Q, ExpressionWrapper, BooleanField, aggregates, OrderBy, functions, lookups, \
-    OuterRef
+from django.db.models import (
+    F,
+    Value,
+    Q,
+    ExpressionWrapper,
+    BooleanField,
+    aggregates,
+    OrderBy,
+    functions,
+    lookups,
+    OuterRef,
+)
 from django.db.models.fields.json import KeyTransform
 from django.db.models.functions import Cast
 from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator, ParseError
@@ -19,8 +29,8 @@ class OrmqlDialect(Dialect):
     DPIPE_IS_STRING_CONCAT = True
     QUOTE_START = "'"
     QUOTE_END = "'"
-    IDENTIFIER_START = '`'
-    IDENTIFIER_END = '`'
+    IDENTIFIER_START = "`"
+    IDENTIFIER_END = "`"
 
     class Tokenizer(Tokenizer):
         QUOTES = ["'", '"']
@@ -99,7 +109,9 @@ boolean_expression_nodes = {
     expressions.LTE: db_func.LowerEqualThan,
     expressions.Is: db_func.Is,
     expressions.Like: db_func.Like,
-    expressions.ILike: lambda a, b: db_func.Like(functions.Upper(a), functions.Upper(b)),
+    expressions.ILike: lambda a, b: db_func.Like(
+        functions.Upper(a), functions.Upper(b)
+    ),
 }
 
 math_binary_nodes = {
@@ -138,8 +150,12 @@ function_nodes = {
 }
 
 types = {
-    expressions.DataType.Type.BIGDECIMAL: models.DecimalField(max_digits=20, decimal_places=2),  # TODO variable?
-    expressions.DataType.Type.DECIMAL: models.DecimalField(max_digits=20, decimal_places=2),  # TODO variable?
+    expressions.DataType.Type.BIGDECIMAL: models.DecimalField(
+        max_digits=20, decimal_places=2
+    ),  # TODO variable?
+    expressions.DataType.Type.DECIMAL: models.DecimalField(
+        max_digits=20, decimal_places=2
+    ),  # TODO variable?
     expressions.DataType.Type.BIGINT: models.BigIntegerField(),
     expressions.DataType.Type.BIGSERIAL: models.BigIntegerField(),
     expressions.DataType.Type.INT: models.IntegerField(),
@@ -173,12 +189,16 @@ class Query:
                 expression.expression.this,
             ]
         elif isinstance(expression, expressions.Column):
-            return [x.this for x in [
-                expression.args.get("catalog"),
-                expression.args.get("db"),
-                expression.args.get("table"),
-                expression.args.get("this"),
-            ] if x]
+            return [
+                x.this
+                for x in [
+                    expression.args.get("catalog"),
+                    expression.args.get("db"),
+                    expression.args.get("table"),
+                    expression.args.get("this"),
+                ]
+                if x
+            ]
         else:
             raise TypeError("Invalid type")
 
@@ -191,7 +211,11 @@ class Query:
             if len(cp) == 1 and aggregate_names and cp[0] in aggregate_names:
                 return F(aggregate_names[cp[0]])
             return table.resolve_column_path(cp)
-        elif isinstance(expression, expressions.Anonymous) and expression.this.lower() == "outer":
+        elif (
+            isinstance(expression, expressions.Anonymous)
+            and expression.this.lower() == "outer"
+        ):
+
             def _resolve(e, parent_stack, depth):
                 if isinstance(e, expressions.Anonymous) and e.this.lower() == "outer":
                     if not parent_stack:
@@ -204,7 +228,9 @@ class Query:
                 else:
                     raise QueryNotSupported("Invalid argument to OUTER()")
 
-            cp, lookup_table, depth = _resolve(expression.expressions[0], parent_table_stack, 1)
+            cp, lookup_table, depth = _resolve(
+                expression.expressions[0], parent_table_stack, 1
+            )
             p = lookup_table.resolve_column_path(cp)
             if isinstance(p, F):
                 p = p.name
@@ -231,24 +257,48 @@ class Query:
                 lookup_name = expression.this.this.lower()
             else:
                 lookup_name = expression.this.to_py()
-            if lookup_name not in ("year", "iso_year", "quarter", "month", "day", "week",
-                                   "week_day", "iso_week_day", "hour", "minute", "second"):
+            if lookup_name not in (
+                "year",
+                "iso_year",
+                "quarter",
+                "month",
+                "day",
+                "week",
+                "week_day",
+                "iso_week_day",
+                "hour",
+                "minute",
+                "second",
+            ):
                 raise QueryNotSupported(f"Unsupported extract value '{lookup_name}'")
             return functions.Extract(
                 self._expression_to_django(expression.expression, **kwargs),
                 lookup_name=lookup_name,
                 tzinfo=self.timezone,
             )
-        elif isinstance(expression, expressions.Anonymous) and expression.this.lower() == "datetrunc":
+        elif (
+            isinstance(expression, expressions.Anonymous)
+            and expression.this.lower() == "datetrunc"
+        ):
             if len(expression.expressions) != 2:
                 raise QueryError("Function datetrunc takes exactly two arguments")
             try:
                 lookup_name = expression.expressions[0].to_py()
-                if lookup_name not in ("year", "quarter", "month", "day", "week", "hour",
-                                       "minute", "second"):
-                    raise QueryNotSupported(f"Unsupported truncation type '{lookup_name}'")
+                if lookup_name not in (
+                    "year",
+                    "quarter",
+                    "month",
+                    "day",
+                    "week",
+                    "hour",
+                    "minute",
+                    "second",
+                ):
+                    raise QueryNotSupported(
+                        f"Unsupported truncation type '{lookup_name}'"
+                    )
             except:
-                raise QueryNotSupported(f"Unsupported truncation type")
+                raise QueryNotSupported("Unsupported truncation type")
             return functions.Trunc(
                 self._expression_to_django(expression.expressions[1], **kwargs),
                 lookup_name,
@@ -261,71 +311,128 @@ class Query:
                 args = []
             if expression.args.get("expression"):
                 args += [self._expression_to_django(expression.expression, **kwargs)]
-            args += [self._expression_to_django(e, **kwargs) for e in expression.expressions]
+            args += [
+                self._expression_to_django(e, **kwargs) for e in expression.expressions
+            ]
             cls = function_nodes[type(expression)]
-            if (cls.arity and cls.arity != len(args)) or any(v is not None and k not in ("this", "expression", "expressions", "ignore_nulls", "safe", "coalesce") for k, v in expression.args.items()):
-                raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
+            if (cls.arity and cls.arity != len(args)) or any(
+                v is not None
+                and k
+                not in (
+                    "this",
+                    "expression",
+                    "expressions",
+                    "ignore_nulls",
+                    "safe",
+                    "coalesce",
+                )
+                for k, v in expression.args.items()
+            ):
+                raise QueryNotSupported(
+                    f"Wrong number of arguments for function {expression.sql()}"
+                )
             return cls(*args)
         elif isinstance(expression, expressions.Round):
             args = [
                 self._expression_to_django(expression.this, **kwargs),
             ]
             if expression.args.get("decimals"):
-                args.append(self._expression_to_django(expression.args["decimals"], **kwargs))
-            if any(v is not None and k not in ("this", "decimals") for k, v in expression.args.items()):
-                raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
+                args.append(
+                    self._expression_to_django(expression.args["decimals"], **kwargs)
+                )
+            if any(
+                v is not None and k not in ("this", "decimals")
+                for k, v in expression.args.items()
+            ):
+                raise QueryNotSupported(
+                    f"Wrong number of arguments for function {expression.sql()}"
+                )
             return functions.Round(*args)
         elif isinstance(expression, expressions.Pad):
             args = [
                 self._expression_to_django(expression.this, **kwargs),
-                self._expression_to_django(expression.expression, **kwargs)
+                self._expression_to_django(expression.expression, **kwargs),
             ]
             if expression.args.get("fill_pattern"):
-                args.append(self._expression_to_django(expression.args["fill_pattern"], **kwargs))
-            if any(v is not None and k not in ("this", "expression", "fill_pattern", "is_left") for k, v in expression.args.items()):
-                raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
+                args.append(
+                    self._expression_to_django(
+                        expression.args["fill_pattern"], **kwargs
+                    )
+                )
+            if any(
+                v is not None
+                and k not in ("this", "expression", "fill_pattern", "is_left")
+                for k, v in expression.args.items()
+            ):
+                raise QueryNotSupported(
+                    f"Wrong number of arguments for function {expression.sql()}"
+                )
             if expression.args["is_left"]:
                 return functions.LPad(*args)
             else:
                 return functions.RPad(*args)
         elif isinstance(expression, expressions.StrPosition):
             if not expression.args.get("substr"):
-                raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
+                raise QueryNotSupported(
+                    f"Wrong number of arguments for function {expression.sql()}"
+                )
             args = [
                 self._expression_to_django(expression.this, **kwargs),
-                self._expression_to_django(expression.args["substr"], **kwargs)
+                self._expression_to_django(expression.args["substr"], **kwargs),
             ]
-            if any(v is not None and k not in ("this", "substr") for k, v in expression.args.items()):
-                raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
+            if any(
+                v is not None and k not in ("this", "substr")
+                for k, v in expression.args.items()
+            ):
+                raise QueryNotSupported(
+                    f"Wrong number of arguments for function {expression.sql()}"
+                )
             return functions.StrIndex(*args)
         elif isinstance(expression, expressions.Substring):
             if not expression.args.get("start"):
-                raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
+                raise QueryNotSupported(
+                    f"Wrong number of arguments for function {expression.sql()}"
+                )
             args = [
                 self._expression_to_django(expression.this, **kwargs),
-                self._expression_to_django(expression.args["start"], **kwargs)
+                self._expression_to_django(expression.args["start"], **kwargs),
             ]
             if expression.args.get("length"):
-                args.append(self._expression_to_django(expression.args["length"], **kwargs))
-            if any(v is not None and k not in ("this", "start", "length") for k, v in expression.args.items()):
-                raise QueryNotSupported(f"Wrong number of arguments for function {expression.sql()}")
+                args.append(
+                    self._expression_to_django(expression.args["length"], **kwargs)
+                )
+            if any(
+                v is not None and k not in ("this", "start", "length")
+                for k, v in expression.args.items()
+            ):
+                raise QueryNotSupported(
+                    f"Wrong number of arguments for function {expression.sql()}"
+                )
             return functions.Substr(*args)
         elif isinstance(expression, expressions.Replace):
             args = [
                 self._expression_to_django(expression.this, **kwargs),
-                self._expression_to_django(expression.expression, **kwargs)
+                self._expression_to_django(expression.expression, **kwargs),
             ]
             if expression.args.get("replacement"):
-                args.append(self._expression_to_django(expression.args["replacement"], **kwargs))
+                args.append(
+                    self._expression_to_django(expression.args["replacement"], **kwargs)
+                )
             return functions.Replace(*args)
         elif isinstance(expression, expressions.DPipe):
             return functions.Concat(
                 self._expression_to_django(expression.this, **kwargs),
                 self._expression_to_django(expression.expression, **kwargs),
             )
-        elif isinstance(expression, expressions.Filter) and type(expression.this) in aggregate_nodes:
+        elif (
+            isinstance(expression, expressions.Filter)
+            and type(expression.this) in aggregate_nodes
+        ):
             if isinstance(expression.this.this, expressions.Distinct):
-                args = [self._expression_to_django(e, **kwargs) for e in expression.this.this.expressions]
+                args = [
+                    self._expression_to_django(e, **kwargs)
+                    for e in expression.this.this.expressions
+                ]
                 distinct = True
             else:
                 args = [self._expression_to_django(expression.this.this, **kwargs)]
@@ -333,11 +440,14 @@ class Query:
             return aggregate_nodes[type(expression.this)](
                 *args,
                 distinct=distinct,
-                filter=self._expression_to_django(expression.expression.this, **kwargs)
+                filter=self._expression_to_django(expression.expression.this, **kwargs),
             )
         elif type(expression) in aggregate_nodes:
             if isinstance(expression.this, expressions.Distinct):
-                args = [self._expression_to_django(e, **kwargs) for e in expression.this.expressions]
+                args = [
+                    self._expression_to_django(e, **kwargs)
+                    for e in expression.this.expressions
+                ]
                 distinct = True
             else:
                 args = [self._expression_to_django(expression.this, **kwargs)]
@@ -361,7 +471,9 @@ class Query:
             return self._expression_to_django(expression.this, **kwargs)
         elif isinstance(expression, expressions.Neg):
             return -self._expression_to_django(expression.this, **kwargs)
-        elif isinstance(expression, (
+        elif isinstance(
+            expression,
+            (
                 expressions.BitwiseNot,
                 expressions.BitwiseOr,
                 expressions.BitwiseXor,
@@ -369,7 +481,8 @@ class Query:
                 expressions.BitwiseCount,
                 expressions.BitwiseLeftShift,
                 expressions.BitwiseRightShift,
-        )):
+            ),
+        ):
             raise QueryNotSupported("Bitwise operations not supported")
         elif type(expression) in boolean_expression_nodes:
             return ExpressionWrapper(
@@ -377,43 +490,54 @@ class Query:
                     self._expression_to_django(expression.left, **kwargs),
                     self._expression_to_django(expression.right, **kwargs),
                 ),
-                output_field=BooleanField()
+                output_field=BooleanField(),
             )
         elif isinstance(expression, expressions.Between):
-            return Q(ExpressionWrapper(
-                db_func.GreaterEqualThan(
-                    self._expression_to_django(expression.this, **kwargs),
-                    self._expression_to_django(expression.args["low"], **kwargs),
-                ),
-                output_field=BooleanField()
-            )) & Q(ExpressionWrapper(
-                db_func.LowerEqualThan(
-                    self._expression_to_django(expression.this, **kwargs),
-                    self._expression_to_django(expression.args["high"], **kwargs),
-                ),
-                output_field=BooleanField()
-            ))
+            return Q(
+                ExpressionWrapper(
+                    db_func.GreaterEqualThan(
+                        self._expression_to_django(expression.this, **kwargs),
+                        self._expression_to_django(expression.args["low"], **kwargs),
+                    ),
+                    output_field=BooleanField(),
+                )
+            ) & Q(
+                ExpressionWrapper(
+                    db_func.LowerEqualThan(
+                        self._expression_to_django(expression.this, **kwargs),
+                        self._expression_to_django(expression.args["high"], **kwargs),
+                    ),
+                    output_field=BooleanField(),
+                )
+            )
         elif isinstance(expression, expressions.In):
             if expression.args.get("query"):
-                return ExpressionWrapper(lookups.In(
-                    self._expression_to_django(expression.this, **kwargs),
-                    self._expression_to_django(expression.args["query"], **kwargs),
-                ), output_field=BooleanField())
+                return ExpressionWrapper(
+                    lookups.In(
+                        self._expression_to_django(expression.this, **kwargs),
+                        self._expression_to_django(expression.args["query"], **kwargs),
+                    ),
+                    output_field=BooleanField(),
+                )
             else:
-                return ExpressionWrapper(lookups.In(
-                    self._expression_to_django(expression.this, **kwargs),
-                    [self._expression_to_django(e, **kwargs) for e in expression.expressions],
-                ), output_field=BooleanField())
+                return ExpressionWrapper(
+                    lookups.In(
+                        self._expression_to_django(expression.this, **kwargs),
+                        [
+                            self._expression_to_django(e, **kwargs)
+                            for e in expression.expressions
+                        ],
+                    ),
+                    output_field=BooleanField(),
+                )
         elif isinstance(expression, expressions.And):
-            return (
-                self._expression_to_django(expression.left, **kwargs) &
-                self._expression_to_django(expression.right, **kwargs)
-            )
+            return self._expression_to_django(
+                expression.left, **kwargs
+            ) & self._expression_to_django(expression.right, **kwargs)
         elif isinstance(expression, expressions.Or):
-            return (
-                self._expression_to_django(expression.left, **kwargs) |
-                self._expression_to_django(expression.right, **kwargs)
-            )
+            return self._expression_to_django(
+                expression.left, **kwargs
+            ) | self._expression_to_django(expression.right, **kwargs)
         elif isinstance(expression, expressions.Not):
             return ~self._expression_to_django(expression.this, **kwargs)
         elif isinstance(expression, expressions.Case):
@@ -425,9 +549,9 @@ class Query:
                         models.When(
                             db_func.Equal(
                                 self._expression_to_django(expression.this, **kwargs),
-                                self._expression_to_django(w.this, **kwargs)
+                                self._expression_to_django(w.this, **kwargs),
                             ),
-                            then=self._expression_to_django(w.args["true"], **kwargs)
+                            then=self._expression_to_django(w.args["true"], **kwargs),
                         )
                     )
             else:
@@ -435,15 +559,14 @@ class Query:
                     whens.append(
                         models.When(
                             self._expression_to_django(w.this, **kwargs),
-                            then=self._expression_to_django(w.args["true"], **kwargs)
+                            then=self._expression_to_django(w.args["true"], **kwargs),
                         )
                     )
             if expression.args.get("default"):
-                default = self._expression_to_django(expression.args["default"], **kwargs)
-            return NumericAwareCase(
-                *whens,
-                default=default
-            )
+                default = self._expression_to_django(
+                    expression.args["default"], **kwargs
+                )
+            return NumericAwareCase(*whens, default=default)
         elif isinstance(expression, expressions.CurrentDate):
             return functions.TruncDate(functions.Now(), tzinfo=self.timezone)
         elif isinstance(expression, expressions.CurrentTime):
@@ -454,8 +577,7 @@ class Query:
             if not isinstance(expression.this, expressions.Select):
                 raise QueryNotSupported("Only SELECT subqueries are supported")
             qs, _ = self._select_to_qs(
-                expression.this,
-                parent_table_stack=parent_table_stack + [table]
+                expression.this, parent_table_stack=parent_table_stack + [table]
             )
             return db_func.AutoTypedSubquery(
                 qs,
@@ -464,8 +586,7 @@ class Query:
             if not isinstance(expression.this, expressions.Select):
                 raise QueryNotSupported("Only SELECT subqueries are supported")
             qs, _ = self._select_to_qs(
-                expression.this,
-                parent_table_stack=parent_table_stack + [table]
+                expression.this, parent_table_stack=parent_table_stack + [table]
             )
             return models.Exists(qs)
         elif isinstance(expression, expressions.Placeholder):
@@ -514,12 +635,24 @@ class Query:
         qs = table.base_qs
 
         if root.args.get("where"):
-            qs = qs.filter(self._where_to_django(root.args["where"].this, table=table, aggregate_names=[], parent_table_stack=parent_table_stack))
+            qs = qs.filter(
+                self._where_to_django(
+                    root.args["where"].this,
+                    table=table,
+                    aggregate_names=[],
+                    parent_table_stack=parent_table_stack,
+                )
+            )
 
         group_args = []
         if root.args.get("group"):
             for i, e in enumerate(root.args["group"]):
-                django_e = self._expression_to_django(e, table=table, aggregate_names=[], parent_table_stack=parent_table_stack)
+                django_e = self._expression_to_django(
+                    e,
+                    table=table,
+                    aggregate_names=[],
+                    parent_table_stack=parent_table_stack,
+                )
                 group_args.append(django_e)
 
         values_args = {}
@@ -536,7 +669,12 @@ class Query:
 
                 # TODO We sould validate that everything selected in a GROUP BY query is either an aggregate, part of
                 # the grouping, or a literal. However, I have not found a safe way to validate yet and it's not a big deal.
-                django_e = self._expression_to_django(e, table=table, aggregate_names=[], parent_table_stack=parent_table_stack)
+                django_e = self._expression_to_django(
+                    e,
+                    table=table,
+                    aggregate_names=[],
+                    parent_table_stack=parent_table_stack,
+                )
                 if isinstance(django_e, aggregates.Aggregate):
                     # We do not use the alias names given by the user, first to ensure uniqueness, but also Django has
                     # had some SQL injection vulns recently that affected user-chosen annotate targets. We'll remap
@@ -545,7 +683,12 @@ class Query:
                     values_names[f"expr{i}"] = n
                     name_to_aggregation[n] = f"expr{i}"
                 else:
-                    values_args[f"expr{i}"] = self._expression_to_django(e, table=table, aggregate_names=[], parent_table_stack=parent_table_stack)
+                    values_args[f"expr{i}"] = self._expression_to_django(
+                        e,
+                        table=table,
+                        aggregate_names=[],
+                        parent_table_stack=parent_table_stack,
+                    )
                     values_names[f"expr{i}"] = n
 
         if root.args.get("distinct"):
@@ -554,8 +697,11 @@ class Query:
         order_by = []
         if root.args.get("order"):
             for i, ordered in enumerate(root.args["order"].args["expressions"]):
-                if (isinstance(ordered.this, expressions.Column) and
-                        isinstance(ordered.this.this, expressions.Identifier) and ordered.this.this.this in name_to_aggregation):
+                if (
+                    isinstance(ordered.this, expressions.Column)
+                    and isinstance(ordered.this.this, expressions.Identifier)
+                    and ordered.this.this.this in name_to_aggregation
+                ):
                     order_by.append(
                         OrderBy(
                             F(name_to_aggregation[ordered.this.this.this]),
@@ -567,7 +713,9 @@ class Query:
                 else:
                     order_by.append(
                         OrderBy(
-                            self._expression_to_django(ordered.this, table=table, aggregate_names=[]),
+                            self._expression_to_django(
+                                ordered.this, table=table, aggregate_names=[]
+                            ),
                             descending=ordered.args["desc"],
                             nulls_first=ordered.args["nulls_first"],
                             nulls_last=not ordered.args["nulls_first"],
@@ -580,29 +728,39 @@ class Query:
 
         if group_args and not aggregations:
             # Django will not do proper group by without any aggregations, so we need to do trickery
-            aggregations = {
-                "_grp_trick": models.Count("*")
-            }
+            aggregations = {"_grp_trick": models.Count("*")}
 
         if aggregations:
             if group_args:
-                qs = qs.order_by().annotate(**{
-                    f"grp{i}": v for i, v in enumerate(group_args)
-                }, **values_args).values(*[
-                    f"grp{i}" for i, v in enumerate(group_args)
-                ], *values_args.keys()).annotate(
-                    **aggregations
+                qs = (
+                    qs.order_by()
+                    .annotate(
+                        **{f"grp{i}": v for i, v in enumerate(group_args)},
+                        **values_args,
+                    )
+                    .values(
+                        *[f"grp{i}" for i, v in enumerate(group_args)],
+                        *values_args.keys(),
+                    )
+                    .annotate(**aggregations)
                 )
 
                 if root.args.get("having"):
-                    qs = qs.filter(self._where_to_django(root.args["having"].this, table=table, aggregate_names=name_to_aggregation))
+                    qs = qs.filter(
+                        self._where_to_django(
+                            root.args["having"].this,
+                            table=table,
+                            aggregate_names=name_to_aggregation,
+                        )
+                    )
             elif parent_table_stack:
                 # Django can't use .aggregate() in subqueries, we need to do trickery
-                qs = qs.annotate(
-                    _agg_trick=Value("1")
-                ).values("_agg_trick").annotate(
-                    **aggregations
-                ).values(list(aggregations.keys())[0])
+                qs = (
+                    qs.annotate(_agg_trick=Value("1"))
+                    .values("_agg_trick")
+                    .annotate(**aggregations)
+                    .values(list(aggregations.keys())[0])
+                )
             else:
                 qs = qs.aggregate(**aggregations)
         else:
@@ -619,7 +777,7 @@ class Query:
                     raise QueryNotSupported("OFFSET may only contain literal numbers")
                 offset = int(root.args["offset"].expression.this)
                 limit = int(root.args["limit"].expression.this)
-                qs = qs[offset:offset + limit]
+                qs = qs[offset : offset + limit]
             elif root.args.get("limit"):
                 if not isinstance(root.args["limit"].expression, expressions.Literal):
                     raise QueryNotSupported("LIMIT may only contain literal numbers")
@@ -647,15 +805,8 @@ class Query:
         qs, values_names = self._select_to_qs(ast, [])
 
         if isinstance(qs, dict):
-            yield {
-                values_names[k]: v
-                for k, v in qs.items()
-            }
+            yield {values_names[k]: v for k, v in qs.items()}
         else:
             print(f"Generated statement: {qs.query!s}")
             for row in qs:
-                yield {
-                    values_names[k]: v
-                    for k, v in row.items()
-                    if k in values_names
-                }
+                yield {values_names[k]: v for k, v in row.items() if k in values_names}

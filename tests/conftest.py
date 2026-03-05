@@ -10,15 +10,21 @@ import django
 
 django.setup()
 
-from .testapp.factories import TenantFactory, CategoryFactory, TagFactory, ProductFactory, CustomerFactory, \
-    OrderFactory, OrderPositionFactory
-from .testapp.models import Order
-from .testapp.ormql import engine_for_tenant
-
 
 @pytest.fixture
 @freeze_time("2024-12-14 03:13:14+01:00")
 def dataset1():
+    from .testapp.factories import (
+        TenantFactory,
+        CategoryFactory,
+        TagFactory,
+        ProductFactory,
+        CustomerFactory,
+        OrderFactory,
+        OrderPositionFactory,
+    )
+    from .testapp.models import Order
+
     # Tenants
     t1 = TenantFactory.create()
     t2 = TenantFactory.create()
@@ -59,7 +65,7 @@ def dataset1():
         tags=[t1_tag_fiction],
         price=Decimal("19.00"),
     )
-    t2_prod_red_shirt = ProductFactory.create(
+    ProductFactory.create(
         tenant=t2,
         title="Red shirt",
         category=t2_cat_shirts,
@@ -75,22 +81,26 @@ def dataset1():
     )
 
     # Customers
-    t1_c_active = CustomerFactory.create(tenant=t1, name="CA", address={
-        "city": {
-            "name": "Heidelberg",
-            "state": {
-                "code": "BW",
-                "country": {
-                    "code": "DE"
-                }
+    t1_c_active = CustomerFactory.create(
+        tenant=t1,
+        name="CA",
+        address={
+            "city": {
+                "name": "Heidelberg",
+                "state": {"code": "BW", "country": {"code": "DE"}},
             }
-        }
-    }, email="ca1@example.com")
-    t1_c_inactive = CustomerFactory.create(tenant=t1, active=False, name="CB", email="cb2@example.com")
+        },
+        email="ca1@example.com",
+    )
+    t1_c_inactive = CustomerFactory.create(
+        tenant=t1, active=False, name="CB", email="cb2@example.com"
+    )
     t2_c = CustomerFactory.create(tenant=t2, name="CC")
 
     # Orders
-    t1_o1 = OrderFactory.create(tenant=t1, customer=t1_c_active, status=Order.OrderStatus.PAID)
+    t1_o1 = OrderFactory.create(
+        tenant=t1, customer=t1_c_active, status=Order.OrderStatus.PAID
+    )
     OrderPositionFactory.create(
         order=t1_o1,
         quantity=1,
@@ -105,7 +115,9 @@ def dataset1():
         single_price=t1_prod_lotr_movie.price,
         tax_rate=t1_prod_lotr_movie.tax_rate,
     )
-    t1_o2 = OrderFactory.create(tenant=t1, customer=t1_c_inactive, status=Order.OrderStatus.CANCELED)
+    t1_o2 = OrderFactory.create(
+        tenant=t1, customer=t1_c_inactive, status=Order.OrderStatus.CANCELED
+    )
     OrderPositionFactory.create(
         order=t1_o2,
         quantity=2,
@@ -120,7 +132,9 @@ def dataset1():
         single_price=t1_prod_lotr_movie.price,
         tax_rate=t1_prod_lotr_movie.tax_rate,
     )
-    t1_o3 = OrderFactory.create(tenant=t1, customer=None, status=Order.OrderStatus.CANCELED)
+    t1_o3 = OrderFactory.create(
+        tenant=t1, customer=None, status=Order.OrderStatus.CANCELED
+    )
     OrderPositionFactory.create(
         order=t1_o3,
         quantity=1,
@@ -141,5 +155,7 @@ def dataset1():
 
 @pytest.fixture
 def engine_t1(dataset1):
+    from .testapp.ormql import engine_for_tenant
+
     t1, t2 = dataset1
     return engine_for_tenant(t1)

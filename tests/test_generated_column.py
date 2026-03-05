@@ -1,8 +1,4 @@
-from decimal import Decimal
-
 import pytest
-
-from django_ormql.exceptions import QueryError
 
 
 @pytest.mark.django_db
@@ -14,9 +10,9 @@ def test_select_same_table(engine_t1):
         """
     )
     assert list(res) == [
-        {'status': 'paid', 'validity': 'valid', 'email': 'ca1@example.com'},
-        {'status': 'canceled', 'validity': 'invalid', 'email': 'cb2@example.com'},
-        {'status': 'canceled', 'validity': 'invalid', 'email': None}
+        {"status": "paid", "validity": "valid", "email": "ca1@example.com"},
+        {"status": "canceled", "validity": "invalid", "email": "cb2@example.com"},
+        {"status": "canceled", "validity": "invalid", "email": None},
     ]
 
 
@@ -29,11 +25,27 @@ def test_select_joined_table(engine_t1):
         """
     )
     assert list(res) == [
-        {'order.status': 'paid', 'order.validity': 'valid', 'order.email': 'ca1@example.com'},
-        {'order.status': 'paid', 'order.validity': 'valid', 'order.email': 'ca1@example.com'},
-        {'order.status': 'canceled', 'order.validity': 'invalid', 'order.email': 'cb2@example.com'},
-        {'order.status': 'canceled', 'order.validity': 'invalid', 'order.email': 'cb2@example.com'},
-        {'order.status': 'canceled', 'order.validity': 'invalid', 'order.email': None},
+        {
+            "order.status": "paid",
+            "order.validity": "valid",
+            "order.email": "ca1@example.com",
+        },
+        {
+            "order.status": "paid",
+            "order.validity": "valid",
+            "order.email": "ca1@example.com",
+        },
+        {
+            "order.status": "canceled",
+            "order.validity": "invalid",
+            "order.email": "cb2@example.com",
+        },
+        {
+            "order.status": "canceled",
+            "order.validity": "invalid",
+            "order.email": "cb2@example.com",
+        },
+        {"order.status": "canceled", "order.validity": "invalid", "order.email": None},
     ]
 
 
@@ -46,7 +58,7 @@ def test_select_function_col(engine_t1):
         """
     )
     assert list(res) == [
-        {'order.email_upper': 'CA1@EXAMPLE.COM'},
+        {"order.email_upper": "CA1@EXAMPLE.COM"},
     ]
 
 
@@ -59,5 +71,5 @@ def test_select_static_col(engine_t1):
         """
     )
     assert list(res) == [
-        {'order.static_value': 2},
+        {"order.static_value": 2},
     ]

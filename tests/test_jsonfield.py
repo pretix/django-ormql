@@ -1,8 +1,4 @@
-from decimal import Decimal
-
 import pytest
-
-from django_ormql.exceptions import QueryNotSupported
 
 
 @pytest.mark.django_db
@@ -15,17 +11,14 @@ def test_select_json(engine_t1):
         """
     )
     assert list(res) == [
-        {"address": {
-            "city": {
-                "name": "Heidelberg",
-                "state": {
-                    "code": "BW",
-                    "country": {
-                        "code": "DE"
-                    }
+        {
+            "address": {
+                "city": {
+                    "name": "Heidelberg",
+                    "state": {"code": "BW", "country": {"code": "DE"}},
                 }
             }
-        }}
+        }
     ]
 
 
@@ -38,14 +31,7 @@ def test_select_json_key(engine_t1):
         WHERE name = "CA"
         """
     )
-    assert list(res) == [
-        {"state": {
-            "code": "BW",
-            "country": {
-                "code": "DE"
-            }
-        }}
-    ]
+    assert list(res) == [{"state": {"code": "BW", "country": {"code": "DE"}}}]
     res = engine_t1.query(
         """
         SELECT address->city->state->code AS state
@@ -53,6 +39,4 @@ def test_select_json_key(engine_t1):
         WHERE name = "CA"
         """
     )
-    assert list(res) == [
-        {"state": "BW"}
-    ]
+    assert list(res) == [{"state": "BW"}]

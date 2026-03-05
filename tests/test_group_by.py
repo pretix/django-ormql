@@ -100,13 +100,15 @@ def test_group_by_aggregate_multiple_args(engine_t1):
 @pytest.mark.xfail(reason="TODO Check not yet implemented")
 def test_group_by_invalid_select(engine_t1):
     with pytest.raises(QueryError):
-        list(engine_t1.query(
-            """
+        list(
+            engine_t1.query(
+                """
             SELECT title, count(id)
             FROM products
             GROUP BY category.title
             """
-        ))
+            )
+        )
 
 
 @pytest.mark.django_db

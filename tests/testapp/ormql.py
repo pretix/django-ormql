@@ -65,15 +65,11 @@ class OrderTable(ModelTable):
     validity = GeneratedColumn(
         Case(
             When(status__in=("new", "paid"), then=Value("valid")),
-            default=Value("invalid")
+            default=Value("invalid"),
         )
     )
-    email = GeneratedColumn(
-        F("customer__email")
-    )
-    email_upper = GeneratedColumn(
-        Upper(F("customer__email"))
-    )
+    email = GeneratedColumn(F("customer__email"))
+    email_upper = GeneratedColumn(Upper(F("customer__email")))
     static_value = GeneratedColumn(Value(2))
 
     class Meta:
@@ -110,34 +106,12 @@ class OrderPositionTable(ModelTable):
 
 def engine_for_tenant(tenant):
     engine = QueryEngine()
+    engine.register_table(CategoryTable(base_qs=Category.objects.filter(tenant=tenant)))
+    engine.register_table(TagTable(base_qs=Tag.objects.filter(tenant=tenant)))
+    engine.register_table(ProductTable(base_qs=Product.objects.filter(tenant=tenant)))
+    engine.register_table(CustomerTable(base_qs=Customer.objects.filter(tenant=tenant)))
+    engine.register_table(OrderTable(base_qs=Order.objects.filter(tenant=tenant)))
     engine.register_table(
-        CategoryTable(
-            base_qs=Category.objects.filter(tenant=tenant)
-        )
-    )
-    engine.register_table(
-        TagTable(
-            base_qs=Tag.objects.filter(tenant=tenant)
-        )
-    )
-    engine.register_table(
-        ProductTable(
-            base_qs=Product.objects.filter(tenant=tenant)
-        )
-    )
-    engine.register_table(
-        CustomerTable(
-            base_qs=Customer.objects.filter(tenant=tenant)
-        )
-    )
-    engine.register_table(
-        OrderTable(
-            base_qs=Order.objects.filter(tenant=tenant)
-        )
-    )
-    engine.register_table(
-        OrderPositionTable(
-            base_qs=OrderPosition.objects.filter(order__tenant=tenant)
-        )
+        OrderPositionTable(base_qs=OrderPosition.objects.filter(order__tenant=tenant))
     )
     return engine

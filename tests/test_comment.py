@@ -1,8 +1,4 @@
-from decimal import Decimal
-
 import pytest
-
-from django_ormql.exceptions import QueryNotSupported, QueryError
 
 
 @pytest.mark.django_db
@@ -18,6 +14,7 @@ def test_line_comment(engine_t1):
         {"title": "Books"},
         {"title": "DVDs"},
     ]
+
 
 @pytest.mark.django_db
 def test_inline_comment(engine_t1):

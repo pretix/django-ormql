@@ -46,7 +46,9 @@ class Order(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True)
     created = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(choices=OrderStatus.choices, max_length=250, default=OrderStatus.NEW)
+    status = models.CharField(
+        choices=OrderStatus.choices, max_length=250, default=OrderStatus.NEW
+    )
 
 
 class OrderPosition(models.Model):

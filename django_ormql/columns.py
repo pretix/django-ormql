@@ -1,11 +1,10 @@
-from ansible_collections.community.general.plugins.modules.xml import children_to_nodes
 from django.db.models import F, Expression
 from django.utils import tree
 
 
 class BaseColumn:
     def __init__(self, **kwargs):
-        self.source = kwargs.get('source')
+        self.source = kwargs.get("source")
 
     def bind(self, field_name, parent):
         self.field_name = field_name
@@ -90,7 +89,7 @@ class ForeignKeyColumn(BaseColumn):
             related_field = rt.resolve_column_path(remaining_path)
 
             if isinstance(related_field, F):
-                return F('__'.join([self.source, related_field.name]))
+                return F("__".join([self.source, related_field.name]))
 
             elif isinstance(related_field, (Expression, tree.Node)):
                 self._prefix_expression(related_field, self.source)
@@ -99,7 +98,7 @@ class ForeignKeyColumn(BaseColumn):
             else:
                 raise TypeError(f"Unexpected type {type(related_field)}")
         else:
-            return F('__'.join([self.source, "pk"]))
+            return F("__".join([self.source, "pk"]))
 
 
 class GeneratedColumn(BaseColumn):
@@ -119,9 +118,9 @@ def get_column_kwargs(model_field):
 
     # The following will only be used by ModelField classes.
     # Gets removed for everything else.
-    kwargs['model_field'] = model_field
+    kwargs["model_field"] = model_field
 
     if model_field.null:
-        kwargs['nullable'] = True
+        kwargs["nullable"] = True
 
     return kwargs
