@@ -5,7 +5,7 @@
 - The only query type supported are `SELECT` queries.
 - Only one table can be contained in the `FROM` part of the query.
 - Foreign key traversal is possible through an object-oriented-style syntax, e.g. `SELECT customer.name FROM orders` will automatically create a join from the orders table to the customers table and resolve the name column.
-- Subqueries support a special `OUTER(id)` syntax to refer to a column of the outer query, similar do Django's [OuterRef](https://docs.djangoproject.com/en/6.0/ref/models/expressions/#referencing-columns-from-the-outer-queryset) function.
+- Subqueries support a special `OUTER(id)` syntax to refer to a column of the outer query, similar to Django's [OuterRef](https://docs.djangoproject.com/en/6.0/ref/models/expressions/#referencing-columns-from-the-outer-queryset) function.
 - Only named parameters (`:name`) are supported.
 - The following features are not supported:
   - Manual joins
