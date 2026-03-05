@@ -598,6 +598,8 @@ class Query:
             )
             return models.Exists(qs)
         elif isinstance(expression, expressions.Placeholder):
+            if expression.name == "?":
+                raise QueryError("Placeholder must be named")
             if expression.name not in self.placeholders:
                 raise QueryError(f"Placeholder '{expression.name}' not filled")
             return Value(self.placeholders[expression.name])

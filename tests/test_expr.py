@@ -19,6 +19,8 @@ tz_ny = zoneinfo.ZoneInfo("America/New_York")
         # String quotes
         ('"foo"', "foo"),
         ("'foo'", "foo"),
+        # Number formats
+        ("10e2", Decimal("1000")),
         # Binary operators
         ("10.5::float + 10::int", Decimal("20.5")),
         ("single_price::decimal + 10.5::float + 10::int", Decimal("39.5")),

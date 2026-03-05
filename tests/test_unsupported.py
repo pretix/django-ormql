@@ -280,3 +280,50 @@ def test_aggregate_window(engine_t1):
             """
             )
         )
+
+
+@pytest.mark.django_db
+def test_hex_number(engine_t1):
+    with pytest.raises(QueryError, match="Invalid expression / Unexpected token"):
+        list(
+            engine_t1.query(
+                """
+                SELECT 0x100 AS result
+                FROM orderpositions
+                """
+            )
+        )
+
+
+@pytest.mark.django_db
+def test_other_parameters(engine_t1):
+    with pytest.raises(QueryError, match="Unsupported expression: @a"):
+        list(
+            engine_t1.query(
+                """
+                SELECT 1
+                FROM orderpositions
+                where id = @a
+                """
+            )
+        )
+    with pytest.raises(QueryError, match="Placeholder must be named"):
+        list(
+            engine_t1.query(
+                """
+                SELECT 1
+                FROM orderpositions
+                where id = ?
+                """
+            )
+        )
+    with pytest.raises(QueryError, match="Column '\\$a' does not exist in table"):
+        list(
+            engine_t1.query(
+                """
+                SELECT 1
+                FROM orderpositions
+                where id = $a
+                """
+            )
+        )
