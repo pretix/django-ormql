@@ -43,25 +43,25 @@ TEMPLATES = [
 WSGI_APPLICATION = "tests.testapp.wsgi.application"
 
 os.environ.setdefault("TOXDB", "sqlite")
-if os.environ['TOXDB'] == 'postgres':
+if os.environ["TOXDB"] == "postgres":
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'testapp',
-            'USER': 'postgres',
-            'PASSWORD': 'postgres',
-            'HOST': 'postgres'
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "testapp",
+            "USER": "postgres",
+            "PASSWORD": "postgres",
+            "HOST": "postgres",
         }
     }
-elif os.environ['TOXDB'] in ('mysql', 'mariadb'):
+elif os.environ["TOXDB"] in ("mysql", "mariadb"):
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'testapp',
-            'USER': 'root',
-            'PASSWORD': '',
-            'HOST': 'mariadb',
-            'PORT': 3306
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": "testapp",
+            "USER": "root",
+            "PASSWORD": "",
+            "HOST": "mariadb",
+            "PORT": 3306,
         }
     }
 else:

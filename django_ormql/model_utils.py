@@ -29,6 +29,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+
 import inspect
 from collections import namedtuple
 from typing import MutableMapping
@@ -79,7 +80,7 @@ class ClassLookupDict:
         self.mapping = mapping
 
     def __getitem__(self, key):
-        if hasattr(key, '_proxy_class'):
+        if hasattr(key, "_proxy_class"):
             # Deal with proxy classes. Ie. BoundField behaves as if it
             # is a Field instance when using ClassLookupDict.
             base_class = key._proxy_class
@@ -89,36 +90,46 @@ class ClassLookupDict:
         for cls in inspect.getmro(base_class):
             if cls in self.mapping:
                 return self.mapping[cls]
-        raise KeyError('Class %s not found in lookup.' % base_class.__name__)
+        raise KeyError("Class %s not found in lookup." % base_class.__name__)
 
     def __setitem__(self, key, value):
         self.mapping[key] = value
 
 
-FieldInfo = namedtuple('FieldInfo', [
-    'pk',  # Model field instance
-    'fields',  # Dict of field name -> model field instance
-    'forward_relations',  # Dict of field name -> RelationInfo
-    'reverse_relations',  # Dict of field name -> RelationInfo
-    'fields_and_pk',  # Shortcut for 'pk' + 'fields'
-    'relations'  # Shortcut for 'forward_relations' + 'reverse_relations'
-])
+FieldInfo = namedtuple(
+    "FieldInfo",
+    [
+        "pk",  # Model field instance
+        "fields",  # Dict of field name -> model field instance
+        "forward_relations",  # Dict of field name -> RelationInfo
+        "reverse_relations",  # Dict of field name -> RelationInfo
+        "fields_and_pk",  # Shortcut for 'pk' + 'fields'
+        "relations",  # Shortcut for 'forward_relations' + 'reverse_relations'
+    ],
+)
 
-RelationInfo = namedtuple('RelationInfo', [
-    'model_field',
-    'related_model',
-    'to_many',
-    'to_field',
-    'has_through_model',
-    'reverse'
-])
+RelationInfo = namedtuple(
+    "RelationInfo",
+    [
+        "model_field",
+        "related_model",
+        "to_many",
+        "to_field",
+        "has_through_model",
+        "reverse",
+    ],
+)
 
 
 def is_abstract_model(model):
     """
     Given a model class, returns a boolean True if it is abstract and False if it is not.
     """
-    return hasattr(model, '_meta') and hasattr(model._meta, 'abstract') and model._meta.abstract
+    return (
+        hasattr(model, "_meta")
+        and hasattr(model._meta, "abstract")
+        and model._meta.abstract
+    )
 
 
 def _get_pk(opts):
@@ -135,18 +146,20 @@ def _get_pk(opts):
 
 def _get_fields(opts):
     fields = {}
-    for field in [field for field in opts.fields if field.serialize and not field.remote_field]:
+    for field in [
+        field for field in opts.fields if field.serialize and not field.remote_field
+    ]:
         fields[field.name] = field
 
     return fields
 
 
 def _get_to_field(field):
-    return getattr(field, 'to_fields', None) and field.to_fields[0]
+    return getattr(field, "to_fields", None) and field.to_fields[0]
 
 
 def _merge_fields_and_pk(pk, fields):
-    fields_and_pk = {'pk': pk, pk.name: pk}
+    fields_and_pk = {"pk": pk, pk.name: pk}
     fields_and_pk.update(fields)
 
     return fields_and_pk
@@ -161,14 +174,16 @@ def _get_forward_relationships(opts):
     Returns a dict of field names to `RelationInfo`.
     """
     forward_relations = {}
-    for field in [field for field in opts.fields if field.serialize and field.remote_field]:
+    for field in [
+        field for field in opts.fields if field.serialize and field.remote_field
+    ]:
         forward_relations[field.name] = RelationInfo(
             model_field=field,
             related_model=field.remote_field.model,
             to_many=False,
             to_field=_get_to_field(field),
             has_through_model=False,
-            reverse=False
+            reverse=False,
         )
 
     # Deal with forward many-to-many relationships.
@@ -179,10 +194,8 @@ def _get_forward_relationships(opts):
             to_many=True,
             # manytomany do not have to_fields
             to_field=None,
-            has_through_model=(
-                not field.remote_field.through._meta.auto_created
-            ),
-            reverse=False
+            has_through_model=(not field.remote_field.through._meta.auto_created),
+            reverse=False,
         )
 
     return forward_relations
@@ -202,11 +215,13 @@ def _get_reverse_relationships(opts):
             to_many=relation.field.remote_field.multiple,
             to_field=_get_to_field(relation.field),
             has_through_model=False,
-            reverse=True
+            reverse=True,
         )
 
     # Deal with reverse many-to-many relationships.
-    all_related_many_to_many_objects = [r for r in opts.related_objects if r.field.many_to_many]
+    all_related_many_to_many_objects = [
+        r for r in opts.related_objects if r.field.many_to_many
+    ]
     for relation in all_related_many_to_many_objects:
         accessor_name = relation.get_accessor_name()
         reverse_relations[accessor_name] = RelationInfo(
@@ -216,10 +231,10 @@ def _get_reverse_relationships(opts):
             # manytomany do not have to_fields
             to_field=None,
             has_through_model=(
-                    (getattr(relation.field.remote_field, 'through', None) is not None) and
-                    not relation.field.remote_field.through._meta.auto_created
+                (getattr(relation.field.remote_field, "through", None) is not None)
+                and not relation.field.remote_field.through._meta.auto_created
             ),
-            reverse=True
+            reverse=True,
         )
 
     return reverse_relations
@@ -240,5 +255,6 @@ def get_field_info(model):
     fields_and_pk = _merge_fields_and_pk(pk, fields)
     relationships = _merge_relationships(forward_relations, reverse_relations)
 
-    return FieldInfo(pk, fields, forward_relations, reverse_relations,
-                     fields_and_pk, relationships)
+    return FieldInfo(
+        pk, fields, forward_relations, reverse_relations, fields_and_pk, relationships
+    )

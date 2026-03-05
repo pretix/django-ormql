@@ -67,13 +67,18 @@ def test_aggregate_distinct(engine_t1):
 
 @pytest.mark.django_db
 def test_aggregate_distinct_multiple_not_supported(engine_t1):
-    with pytest.raises(QueryNotSupported, match="Multiple arguments to aggregate expression not supported"):
-        list(engine_t1.query(
-            """
+    with pytest.raises(
+        QueryNotSupported,
+        match="Multiple arguments to aggregate expression not supported",
+    ):
+        list(
+            engine_t1.query(
+                """
             SELECT COUNT(DISTINCT title, tax_rate)
             FROM products
             """
-        ))
+            )
+        )
 
 
 @pytest.mark.django_db

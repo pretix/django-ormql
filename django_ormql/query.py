@@ -438,7 +438,9 @@ class Query:
                 args = [self._expression_to_django(expression.this.this, **kwargs)]
                 distinct = False
             if len(args) > 1:
-                raise QueryNotSupported("Multiple arguments to aggregate expression not supported")
+                raise QueryNotSupported(
+                    "Multiple arguments to aggregate expression not supported"
+                )
             return aggregate_nodes[type(expression.this)](
                 *args,
                 distinct=distinct,
@@ -455,7 +457,9 @@ class Query:
                 args = [self._expression_to_django(expression.this, **kwargs)]
                 distinct = False
             if len(args) > 1:
-                raise QueryNotSupported("Multiple arguments to aggregate expression not supported")
+                raise QueryNotSupported(
+                    "Multiple arguments to aggregate expression not supported"
+                )
             return aggregate_nodes[type(expression)](*args, distinct=distinct)
         elif type(expression) in math_binary_nodes:
             lhs = self._expression_to_django(expression.left, **kwargs)
@@ -711,7 +715,9 @@ class Query:
                             F(name_to_aggregation[ordered.this.this.this]),
                             descending=ordered.args["desc"],
                             nulls_first=True if ordered.args["nulls_first"] else None,
-                            nulls_last=True if not ordered.args["nulls_first"] else None,
+                            nulls_last=True
+                            if not ordered.args["nulls_first"]
+                            else None,
                         )
                     )
                 else:
@@ -722,7 +728,9 @@ class Query:
                             ),
                             descending=ordered.args["desc"],
                             nulls_first=True if ordered.args["nulls_first"] else None,
-                            nulls_last=True if not ordered.args["nulls_first"] else None,
+                            nulls_last=True
+                            if not ordered.args["nulls_first"]
+                            else None,
                         )
                     )
 
