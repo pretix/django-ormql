@@ -710,8 +710,8 @@ class Query:
                         OrderBy(
                             F(name_to_aggregation[ordered.this.this.this]),
                             descending=ordered.args["desc"],
-                            nulls_first=ordered.args["nulls_first"],
-                            nulls_last=not ordered.args["nulls_first"],
+                            nulls_first=ordered.args["nulls_first"] is True,
+                            nulls_last=ordered.args["nulls_first"] is not True,
                         )
                     )
                 else:
@@ -721,8 +721,8 @@ class Query:
                                 ordered.this, table=table, aggregate_names=[]
                             ),
                             descending=ordered.args["desc"],
-                            nulls_first=ordered.args["nulls_first"],
-                            nulls_last=not ordered.args["nulls_first"],
+                            nulls_first=ordered.args["nulls_first"] is True,
+                            nulls_last=ordered.args["nulls_first"] is not True,
                         )
                     )
 
