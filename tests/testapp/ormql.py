@@ -1,4 +1,4 @@
-from django.db.models import Case, When, Value, F
+from django.db.models import Case, When, Value, F, Subquery, OuterRef, Count
 from django.db.models.functions import Upper
 
 from django_ormql.engine import QueryEngine
@@ -71,6 +71,14 @@ class OrderTable(ModelTable):
     email = GeneratedColumn(F("customer__email"))
     email_upper = GeneratedColumn(Upper(F("customer__email")))
     static_value = GeneratedColumn(Value(2))
+    position_count = GeneratedColumn(
+        Subquery(
+            OrderPosition.objects.filter(order=OuterRef("pk"))
+            .values("order")
+            .annotate(c=Count("*"))
+            .values("c")
+        )
+    )
 
     class Meta:
         name = "orders"
@@ -84,6 +92,7 @@ class OrderTable(ModelTable):
             "email",
             "email_upper",
             "static_value",
+            "position_count",
         ]
 
 

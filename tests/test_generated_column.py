@@ -73,3 +73,18 @@ def test_select_static_col(engine_t1):
     assert list(res) == [
         {"order.static_value": 2},
     ]
+
+
+@pytest.mark.django_db
+def test_subquery_col(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT email, position_count
+        FROM orders
+        """
+    )
+    assert list(res) == [
+        {"email": "ca1@example.com", "position_count": 2},
+        {"email": "cb2@example.com", "position_count": 2},
+        {"email": None, "position_count": 1},
+    ]
