@@ -1,5 +1,8 @@
+import inspect
+
 from django.db.models import F, Expression
 from django.utils import tree
+from django.utils.module_loading import import_string
 
 
 class BaseColumn:
@@ -82,6 +85,22 @@ class ForeignKeyColumn(BaseColumn):
         else:
             raise TypeError(f"Unexpected type {expr!r}")
         return expr
+
+    def bind(self, field_name, parent):
+        from .tables import ModelTable
+
+        super().bind(field_name, parent)
+        if self.related_table == "self":
+            self.related_table = parent
+        elif isinstance(self.related_table, str):
+            if "." in self.related_table:
+                self.related_table = import_string(self.related_table)
+            else:
+                self.related_table = getattr(
+                    inspect.getmodule(parent), self.related_table
+                )
+        elif not issubclass(self.related_table, ModelTable):
+            raise TypeError("Related field does not point to table")
 
     def resolve_column_path(self, remaining_path):
         rt = self.related_table()

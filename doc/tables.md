@@ -43,6 +43,8 @@ class ProductTable(ModelTable):
         ]
 ```
 
+In case of circular definitions, you can also use `ForeignKeyColumn("ClassNameInSameFile")`, `ForeignKeyColumn("fully.dotted.class.Location")` or `ForeignKeyColumn("self")`.
+
 ## Renamed columns
 
 To rename a column, you can explicitly specify column source.

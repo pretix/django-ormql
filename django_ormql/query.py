@@ -816,7 +816,12 @@ class Query:
         if not isinstance(ast, expressions.Select):
             raise QueryNotSupported("Only SELECT queries are supported")
 
-        qs, values_names = self._select_to_qs(ast, [])
+        try:
+            qs, values_names = self._select_to_qs(ast, [])
+        except QueryError:
+            raise
+        except Exception as e:
+            raise QueryError("Query parsing failed") from e
 
         if isinstance(qs, dict):
             yield {values_names[k]: v for k, v in qs.items()}
