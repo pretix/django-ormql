@@ -4,6 +4,8 @@ from django.db.models import F, Expression
 from django.utils import tree
 from django.utils.module_loading import import_string
 
+from django_ormql.exceptions import QueryNotSupported
+
 
 class BaseColumn:
     def __init__(self, **kwargs):
@@ -102,6 +104,8 @@ class ForeignKeyColumn(BaseColumn):
             raise TypeError("Related field does not point to table")
 
     def resolve_column_path(self, remaining_path):
+        if len(remaining_path) > 20:
+            raise QueryNotSupported("Upper limit of JOINs reached.")
         rt = self.related_table()
         if remaining_path:
             related_field = rt.resolve_column_path(remaining_path)
