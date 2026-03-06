@@ -80,7 +80,6 @@ class ForeignKeyColumn(BaseColumn):
             # kwarg of Q()
             return f"{prefix}__{expr[0]}", expr[1]
         elif isinstance(expr, F):
-            print(f"{prefix}__{expr.name}")
             return F(f"{prefix}__{expr.name}")
         else:
             raise TypeError(f"Unexpected type {expr!r}")
