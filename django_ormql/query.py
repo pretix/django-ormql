@@ -617,11 +617,23 @@ class Query:
                     else:
                         raise QueryNotSupported("Advanced JSON path is not supported")
                 return k
-            else:
+            elif isinstance(expression.expression, expressions.Literal):
+                return KeyTransform(
+                    expression.expression.this,
+                    self._expression_to_django(expression.this, **kwargs),
+                )
+            elif isinstance(expression.expression, expressions.Column):
                 return KeyTransform(
                     expression.expression.this.this,
                     self._expression_to_django(expression.this, **kwargs),
                 )
+            elif isinstance(expression.expression, expressions.Identifier):
+                return KeyTransform(
+                    expression.expression.this.this,
+                    self._expression_to_django(expression.this, **kwargs),
+                )
+            else:
+                raise QueryNotSupported(f"Unsupported JSON path: {expression.sql()}")
         else:
             raise QueryNotSupported(f"Unsupported expression: {expression.sql()}")
 
