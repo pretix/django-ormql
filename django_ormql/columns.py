@@ -1,3 +1,4 @@
+import copy
 import inspect
 
 from django.db.models import F, Expression, OuterRef, Subquery
@@ -65,18 +66,21 @@ class ForeignKeyColumn(BaseColumn):
 
     def _prefix_expression(self, expr, prefix):
         if isinstance(expr, tree.Node):
+            new_expr = expr.create(connector=expr.connector, negated=expr.negated)
             children = []
             for e in expr.children:
                 e = self._prefix_expression(e, prefix)
                 if isinstance(e, F):
                     e = F(f"{prefix}__{expr}")
                 children.append(e)
-            expr.children = children
+            new_expr.children = children
+            return new_expr
         elif isinstance(expr, Expression):
             source_expressions = []
             for e in expr.get_source_expressions():
                 e = self._prefix_expression(e, prefix)
                 source_expressions.append(e)
+            expr = copy.deepcopy(expr)
             expr.set_source_expressions(source_expressions)
         elif isinstance(expr, tuple) and len(expr) == 2:
             # kwarg of Q()
@@ -86,7 +90,8 @@ class ForeignKeyColumn(BaseColumn):
         elif isinstance(expr, F):
             return F(f"{prefix}__{expr.name}")
         elif isinstance(expr, Subquery):
-            self._prefix_expression(expr.query.where, self.source)
+            expr = expr.copy()
+            expr.query.where = self._prefix_expression(expr.query.where, self.source)
             return expr
         else:
             raise TypeError(f"Unexpected type {expr!r}")
@@ -119,12 +124,14 @@ class ForeignKeyColumn(BaseColumn):
                 return F("__".join([self.source, related_field.name]))
 
             elif isinstance(related_field, (Expression, tree.Node)):
-                self._prefix_expression(related_field, self.source)
-                return related_field
+                return self._prefix_expression(related_field, self.source)
 
             elif isinstance(related_field, Subquery):
-                self._prefix_expression(related_field.query.where, self.source)
-                return related_field
+                expr = related_field.copy()
+                expr.query.where = self._prefix_expression(
+                    related_field.query.where, self.source
+                )
+                return expr
 
             else:
                 raise TypeError(f"Unexpected type {type(related_field)}")

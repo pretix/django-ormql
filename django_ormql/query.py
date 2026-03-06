@@ -604,10 +604,24 @@ class Query:
                 raise QueryError(f"Placeholder '{expression.name}' not filled")
             return Value(self.placeholders[expression.name])
         elif isinstance(expression, expressions.JSONExtract):
-            return KeyTransform(
-                expression.expression.this.this,
-                self._expression_to_django(expression.this, **kwargs),
-            )
+            if isinstance(expression.expression, expressions.JSONPath):
+                k = self._expression_to_django(expression.this, **kwargs)
+                for pathel in expression.expression.expressions:
+                    if isinstance(pathel, expressions.JSONPathRoot):
+                        pass
+                    elif isinstance(pathel, expressions.JSONPathKey):
+                        k = KeyTransform(
+                            pathel.this,
+                            k,
+                        )
+                    else:
+                        raise QueryNotSupported("Advanced JSON path is not supported")
+                return k
+            else:
+                return KeyTransform(
+                    expression.expression.this.this,
+                    self._expression_to_django(expression.this, **kwargs),
+                )
         else:
             raise QueryNotSupported(f"Unsupported expression: {expression.sql()}")
 
