@@ -98,3 +98,5 @@ class OrderTable(ModelTable):
             "static_value",
         ]
 ```
+
+A `GeneratedColumn` may also contain a subquery, however in this case, `OuterRef` may currently only be used in the `.filter()` part, not anywhere else in the query.

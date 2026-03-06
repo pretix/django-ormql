@@ -88,3 +88,20 @@ def test_subquery_col(engine_t1):
         {"email": "cb2@example.com", "position_count": 2},
         {"email": None, "position_count": 1},
     ]
+
+
+@pytest.mark.django_db
+def test_subquery_related_col(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT order.email as email, order.position_count as position_count
+        FROM orderpositions
+        """
+    )
+    assert list(res) == [
+        {"email": "ca1@example.com", "position_count": 2},
+        {"email": "ca1@example.com", "position_count": 2},
+        {"email": "cb2@example.com", "position_count": 2},
+        {"email": "cb2@example.com", "position_count": 2},
+        {"email": None, "position_count": 1},
+    ]

@@ -1,6 +1,6 @@
 import inspect
 
-from django.db.models import F, Expression
+from django.db.models import F, Expression, OuterRef, Subquery
 from django.utils import tree
 from django.utils.module_loading import import_string
 
@@ -81,8 +81,13 @@ class ForeignKeyColumn(BaseColumn):
         elif isinstance(expr, tuple) and len(expr) == 2:
             # kwarg of Q()
             return f"{prefix}__{expr[0]}", expr[1]
+        elif isinstance(expr, OuterRef):
+            return OuterRef(f"{prefix}__{expr.name}")
         elif isinstance(expr, F):
             return F(f"{prefix}__{expr.name}")
+        elif isinstance(expr, Subquery):
+            self._prefix_expression(expr.query.where, self.source)
+            return expr
         else:
             raise TypeError(f"Unexpected type {expr!r}")
         return expr
@@ -115,6 +120,10 @@ class ForeignKeyColumn(BaseColumn):
 
             elif isinstance(related_field, (Expression, tree.Node)):
                 self._prefix_expression(related_field, self.source)
+                return related_field
+
+            elif isinstance(related_field, Subquery):
+                self._prefix_expression(related_field.query.where, self.source)
                 return related_field
 
             else:
