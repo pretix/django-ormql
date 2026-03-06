@@ -2,6 +2,7 @@ import copy
 import inspect
 
 from django.db.models import F, Expression, OuterRef, Subquery
+from django.db.models.expressions import ResolvedOuterRef
 from django.utils import tree
 from django.utils.module_loading import import_string
 
@@ -87,6 +88,8 @@ class ForeignKeyColumn(BaseColumn):
             return f"{prefix}__{expr[0]}", expr[1]
         elif isinstance(expr, OuterRef):
             return OuterRef(f"{prefix}__{expr.name}")
+        elif isinstance(expr, ResolvedOuterRef):
+            return ResolvedOuterRef(f"{prefix}__{expr.name}")
         elif isinstance(expr, F):
             return F(f"{prefix}__{expr.name}")
         elif isinstance(expr, Subquery):
@@ -120,7 +123,10 @@ class ForeignKeyColumn(BaseColumn):
         if remaining_path:
             related_field = rt.resolve_column_path(remaining_path)
 
-            if isinstance(related_field, F):
+            if isinstance(related_field, ResolvedOuterRef):
+                return ResolvedOuterRef("__".join([self.source, related_field.name]))
+
+            elif isinstance(related_field, F):
                 return F("__".join([self.source, related_field.name]))
 
             elif isinstance(related_field, (Expression, tree.Node)):

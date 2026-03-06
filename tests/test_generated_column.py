@@ -80,13 +80,12 @@ def test_subquery_col(engine_t1):
     res = engine_t1.query(
         """
         SELECT email, position_count
-        FROM orders
+        FROM customers
         """
     )
     assert list(res) == [
         {"email": "ca1@example.com", "position_count": 2},
         {"email": "cb2@example.com", "position_count": 2},
-        {"email": None, "position_count": 1},
     ]
 
 
@@ -94,7 +93,7 @@ def test_subquery_col(engine_t1):
 def test_subquery_related_col(engine_t1):
     res = engine_t1.query(
         """
-        SELECT order.email as email, order.position_count as position_count
+        SELECT order.email as email, order.customer.position_count as position_count
         FROM orderpositions
         """
     )
@@ -103,5 +102,5 @@ def test_subquery_related_col(engine_t1):
         {"email": "ca1@example.com", "position_count": 2},
         {"email": "cb2@example.com", "position_count": 2},
         {"email": "cb2@example.com", "position_count": 2},
-        {"email": None, "position_count": 1},
+        {"email": None, "position_count": None},
     ]
