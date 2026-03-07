@@ -9,7 +9,6 @@ from .columns import (
     BaseColumn,
     get_column_kwargs,
     ModelColumn,
-    NumericColumn,
     BooleanColumn,
     DateColumn,
     DateTimeColumn,
@@ -17,6 +16,8 @@ from .columns import (
     DurationColumn,
     TimeColumn,
     TextColumn,
+    IntColumn,
+    FloatColumn,
 )
 from .exceptions import QueryError
 
@@ -70,8 +71,8 @@ class Table(BaseTable, metaclass=TableMetaclass):
 
 class ModelTable(Table):
     field_column_mapping = {
-        models.AutoField: NumericColumn,
-        models.BigIntegerField: NumericColumn,
+        models.AutoField: IntColumn,
+        models.BigIntegerField: IntColumn,
         models.BooleanField: BooleanColumn,
         models.CharField: TextColumn,
         models.CommaSeparatedIntegerField: TextColumn,
@@ -82,14 +83,14 @@ class ModelTable(Table):
         models.EmailField: TextColumn,
         models.Field: ModelColumn,
         models.FileField: NotImplementedError,
-        models.FloatField: NumericColumn,
+        models.FloatField: FloatColumn,
         models.ImageField: NotImplementedError,
-        models.IntegerField: NumericColumn,
+        models.IntegerField: IntColumn,
         models.NullBooleanField: BooleanColumn,
-        models.PositiveIntegerField: NumericColumn,
-        models.PositiveSmallIntegerField: NumericColumn,
+        models.PositiveIntegerField: IntColumn,
+        models.PositiveSmallIntegerField: IntColumn,
         models.SlugField: TextColumn,
-        models.SmallIntegerField: NumericColumn,
+        models.SmallIntegerField: IntColumn,
         models.TextField: TextColumn,
         models.TimeField: TimeColumn,
         models.URLField: TextColumn,
@@ -142,6 +143,18 @@ class ModelTable(Table):
             # If the column is explicitly declared on the class then use that.
             if column_name in declared_columns:
                 columns[column_name] = declared_columns[column_name]
+                if (
+                    columns[column_name].nullable is None
+                    and column_name in info.forward_relations
+                ):
+                    columns[column_name].nullable = info.forward_relations[
+                        column_name
+                    ].model_field.null
+                elif (
+                    columns[column_name].nullable is None
+                    and column_name in info.fields_and_pk
+                ):
+                    columns[column_name].nullable = info.fields_and_pk[column_name].null
                 continue
 
             column_class, column_kwargs = self.build_column(
@@ -196,7 +209,7 @@ class ModelTable(Table):
 
         elif column_name in info.relations:
             raise ImproperlyConfigured(
-                "Relational columns need to be defined explicitly."
+                f"Relational column '{column_name}' needs to be defined explicitly."
             )
 
         raise ImproperlyConfigured(
@@ -217,13 +230,11 @@ class ModelTable(Table):
 
         # Special case to handle when a OneToOneField is also the primary key
         if model_column.one_to_one and model_column.primary_key:
-            raise NotImplementedError("TODO")
+            raise NotImplementedError(
+                "Case of a OneToOneField as primary key not handled"
+            )
 
-        if not issubclass(column_class, ModelColumn):
-            # `model_column` is only valid for the fallback case of
-            # `ModelField`, which is used when no other typed column
-            # matched to the model column.
-            column_kwargs.pop("model_column", None)
+        column_kwargs["nullable"] = model_column.null
 
         return column_class, column_kwargs
 

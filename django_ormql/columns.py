@@ -12,6 +12,7 @@ from django_ormql.exceptions import QueryNotSupported
 class BaseColumn:
     def __init__(self, **kwargs):
         self.source = kwargs.get("source")
+        self._nullable = kwargs.get("nullable")
 
     def bind(self, field_name, parent):
         self.field_name = field_name
@@ -22,37 +23,53 @@ class BaseColumn:
     def resolve_column_path(self, remaining_path):
         return F(self.source)
 
+    @property
+    def sql_type(self):
+        return ""
 
-class NumericColumn(BaseColumn):
-    pass
+    @property
+    def nullable(self):
+        return self._nullable
+
+    @nullable.setter
+    def nullable(self, v):
+        self._nullable = v
+
+
+class IntColumn(BaseColumn):
+    sql_type = "INT"
+
+
+class FloatColumn(BaseColumn):
+    sql_type = "FLOAT"
 
 
 class BooleanColumn(BaseColumn):
-    pass
+    sql_type = "BOOLEAN"
 
 
 class TextColumn(BaseColumn):
-    pass
+    sql_type = "TEXT"
 
 
 class DateColumn(BaseColumn):
-    pass
+    sql_type = "DATE"
 
 
 class DateTimeColumn(BaseColumn):
-    pass
+    sql_type = "DATETIME"
 
 
 class TimeColumn(BaseColumn):
-    pass
+    sql_type = "TIME"
 
 
 class DurationColumn(BaseColumn):
-    pass
+    sql_type = "DURATION"
 
 
 class DecimalColumn(BaseColumn):
-    pass
+    sql_type = "DECIMAL"
 
 
 class ModelColumn(BaseColumn):
@@ -146,6 +163,8 @@ class ForeignKeyColumn(BaseColumn):
 
 
 class GeneratedColumn(BaseColumn):
+    nullable = True
+
     def __init__(self, expr, **kwargs):
         self.expr = expr
         super().__init__(**kwargs)
