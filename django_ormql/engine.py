@@ -10,5 +10,17 @@ class QueryEngine:
     def register_table(self, table):
         self.tables[table.Meta.name] = table
 
-    def query(self, query, placeholders=None, timezone=datetime.timezone.utc):
-        return Query(query, self.tables, placeholders, timezone).evaluate()
+    def query(
+        self,
+        query,
+        placeholders=None,
+        timezone=datetime.timezone.utc,
+        default_limit=None,
+    ):
+        return Query(
+            query,
+            self.tables,
+            placeholders,
+            timezone,
+            default_limit,
+        ).evaluate()

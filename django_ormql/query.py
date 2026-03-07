@@ -173,11 +173,12 @@ types = {
 
 
 class Query:
-    def __init__(self, sql, tables, placeholders, timezone):
+    def __init__(self, sql, tables, placeholders, timezone, default_limit):
         self.sql = sql
         self.tables = tables
         self.timezone = timezone
         self.placeholders = placeholders or {}
+        self.default_limit = default_limit
 
     def _to_column_path(self, expression):
         """
@@ -828,6 +829,8 @@ class Query:
                     raise QueryNotSupported("OFFSET may only contain literal numbers")
                 offset = int(root.args["offset"].expression.this)
                 qs = qs[offset:]
+            elif self.default_limit and not parent_table_stack:
+                qs = qs[: self.default_limit]
 
         return qs, values_names
 
