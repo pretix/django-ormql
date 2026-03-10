@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.db import models
 from django.db.models import (
     F,
@@ -840,7 +841,8 @@ class Query:
         except ParseError as e:
             raise QueryNotSupported(str(e)) from e
 
-        print(f"Parsed statement: {ast!r}")
+        if settings.DEBUG:
+            print(f"Parsed statement: {ast!r}")
 
         if not isinstance(ast, expressions.Select):
             raise QueryNotSupported("Only SELECT queries are supported")
@@ -855,6 +857,7 @@ class Query:
         if isinstance(qs, dict):
             yield {values_names[k]: v for k, v in qs.items()}
         else:
-            print(f"Generated statement: {qs.query!s}")
+            if settings.DEBUG:
+                print(f"Generated statement: {qs.query!s}")
             for row in qs:
                 yield {values_names[k]: v for k, v in row.items() if k in values_names}
