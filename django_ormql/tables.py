@@ -237,6 +237,8 @@ class ModelTable(Table):
             )
 
         column_kwargs["nullable"] = model_column.null
+        if model_column.choices:
+            column_kwargs["enum_options"] = model_column.choices
 
         return column_class, column_kwargs
 

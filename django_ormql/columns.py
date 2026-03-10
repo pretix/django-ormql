@@ -13,6 +13,7 @@ class BaseColumn:
     def __init__(self, **kwargs):
         self.source = kwargs.get("source")
         self._nullable = kwargs.get("nullable")
+        self.enum_options = kwargs.get("enum_options", None)
 
     def bind(self, field_name, parent):
         self.field_name = field_name
