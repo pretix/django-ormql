@@ -122,7 +122,7 @@ class ForeignKeyColumn(BaseColumn):
 
         super().bind(field_name, parent)
         if self.related_table == "self":
-            self.related_table = parent
+            self.related_table = parent.__class__
         elif isinstance(self.related_table, str):
             if "." in self.related_table:
                 self.related_table = import_string(self.related_table)
