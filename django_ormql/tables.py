@@ -18,6 +18,7 @@ from .columns import (
     TextColumn,
     IntColumn,
     FloatColumn,
+    JsonColumn,
 )
 from .exceptions import QueryError
 
@@ -97,6 +98,7 @@ class ModelTable(Table):
         models.UUIDField: TextColumn,
         models.GenericIPAddressField: TextColumn,
         models.FilePathField: NotImplementedError,
+        models.JSONField: JsonColumn,
     }
 
     def __init__(self, *, base_qs=None):

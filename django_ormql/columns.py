@@ -72,6 +72,10 @@ class DecimalColumn(BaseColumn):
     sql_type = "DECIMAL"
 
 
+class JsonColumn(BaseColumn):
+    sql_type = "JSONB"
+
+
 class ModelColumn(BaseColumn):
     # Fallback if no type matches
     pass
