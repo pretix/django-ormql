@@ -89,22 +89,18 @@ class ForeignKeyColumn(BaseColumn):
 
     def _prefix_expression(self, expr, prefix):
         if isinstance(expr, tree.Node):
-            new_expr = expr.create(connector=expr.connector, negated=expr.negated)
             children = []
             for e in expr.children:
                 e = self._prefix_expression(e, prefix)
                 if isinstance(e, F):
                     e = F(f"{prefix}__{expr}")
                 children.append(e)
-            new_expr.children = children
-            return new_expr
+            expr = expr.create(children=children, connector=expr.connector, negated=expr.negated)
         elif isinstance(expr, Expression):
-            source_expressions = []
-            for e in expr.get_source_expressions():
-                e = self._prefix_expression(e, prefix)
-                source_expressions.append(e)
-            expr = copy.deepcopy(expr)
-            expr.set_source_expressions(source_expressions)
+            args, kwargs = expr._constructor_args
+            args = [self._prefix_expression(a, prefix) for a in args]
+            kwargs = {k: self._prefix_expression(e, prefix) for k, e in kwargs.items()}
+            expr = type(expr)(*args, **kwargs)
         elif isinstance(expr, tuple) and len(expr) == 2:
             # kwarg of Q()
             return f"{prefix}__{expr[0]}", expr[1]
@@ -117,9 +113,6 @@ class ForeignKeyColumn(BaseColumn):
         elif isinstance(expr, Subquery):
             expr = expr.copy()
             expr.query.where = self._prefix_expression(expr.query.where, self.source)
-            return expr
-        else:
-            raise TypeError(f"Unexpected type {expr!r}")
         return expr
 
     def bind(self, field_name, parent):
