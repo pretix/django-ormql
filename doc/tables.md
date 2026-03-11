@@ -100,3 +100,25 @@ class OrderTable(ModelTable):
 ```
 
 A `GeneratedColumn` may also contain a subquery, however in this case, `OuterRef` may currently only be used in the `.filter()` part, not anywhere else in the query.
+
+## Columns excluded when related
+
+You can mark colums to be excluded when the table is not queried directly but auto-joined through a related field:
+
+```python
+from django_ormql.columns import GeneratedColumn
+
+
+class OrderTable(ModelTable):
+
+    class Meta:
+        name = "orders"
+        model = Order
+        columns = [
+            "id",
+            "created",
+        ]
+        exclude_if_related = [
+            "email",
+        ]
+```

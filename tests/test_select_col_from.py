@@ -307,3 +307,30 @@ def test_schema_name_not_allowed(engine_t1):
             """
             )
         )
+
+
+@pytest.mark.django_db
+def test_exclude_if_related(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT sensitive_data
+        FROM customers
+        LIMIT 1
+        """
+    )
+    assert list(res) == [
+        {"sensitive_data": ""},
+    ]
+
+    with pytest.raises(
+        QueryError, match="Column 'sensitive_data' cannot be queried on related tables."
+    ):
+        list(
+            engine_t1.query(
+                """
+            SELECT customer.sensitive_data
+            FROM orders
+            LIMIT 1
+            """
+            )
+        )

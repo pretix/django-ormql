@@ -66,6 +66,10 @@ class CustomerTable(ModelTable):
             "enabled",
             "address",
             "position_count",
+            "sensitive_data",
+        ]
+        exclude_if_related = [
+            "sensitive_data",
         ]
 
 

@@ -101,11 +101,12 @@ class ModelTable(Table):
         models.JSONField: JsonColumn,
     }
 
-    def __init__(self, *, base_qs=None):
+    def __init__(self, *, base_qs=None, is_related=False):
         if base_qs is None:
             self.base_qs = self.Meta.model._default_manager.all()
         else:
             self.base_qs = base_qs
+        self.is_related = is_related
 
     @cached_property
     def columns(self):
@@ -113,7 +114,10 @@ class ModelTable(Table):
         A dictionary of {column_name: column_instance}.
         """
         fields = model_utils.BindingDict(self)
+        exclude_if_related = getattr(self.Meta, "exclude_if_related", [])
         for key, value in self.get_columns().items():
+            if self.is_related and key in exclude_if_related:
+                continue
             fields[key] = value
         return fields
 
@@ -247,7 +251,12 @@ class ModelTable(Table):
             if "__" in c:
                 raise QueryError("Cannot use __ in column path")
         column_name = column_path[0]
+        exclude_if_related = getattr(self.Meta, "exclude_if_related", [])
         if column_name not in self.columns:
+            if column_name in exclude_if_related:
+                raise QueryError(
+                    f"Column '{column_path[0]}' cannot be queried on related tables."
+                )
             raise QueryError(
                 f"Column '{column_path[0]}' does not exist in table '{self.Meta.name}'."
             )

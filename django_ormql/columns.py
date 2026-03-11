@@ -141,7 +141,7 @@ class ForeignKeyColumn(BaseColumn):
     def resolve_column_path(self, remaining_path):
         if len(remaining_path) > 20:
             raise QueryNotSupported("Upper limit of JOINs reached.")
-        rt = self.related_table()
+        rt = self.related_table(is_related=True)
         if remaining_path:
             related_field = rt.resolve_column_path(remaining_path)
 
