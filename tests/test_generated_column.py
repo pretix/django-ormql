@@ -81,6 +81,7 @@ def test_subquery_col(engine_t1):
         """
         SELECT email, position_count
         FROM customers
+        ORDER BY email
         """
     )
     assert list(res) == [

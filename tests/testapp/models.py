@@ -6,15 +6,24 @@ from django.db import models
 class Tenant(models.Model):
     domain = models.CharField(max_length=250)
 
+    class Meta:
+        ordering = ("id",)
+
 
 class Category(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
     title = models.CharField(max_length=250)
 
+    class Meta:
+        ordering = ("id",)
+
 
 class Tag(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
     tag = models.CharField(max_length=250)
+
+    class Meta:
+        ordering = ("id",)
 
 
 class Product(models.Model):
@@ -26,6 +35,9 @@ class Product(models.Model):
     tax_rate = models.DecimalField(max_digits=10, decimal_places=2)
     publication_date = models.DateField()
 
+    class Meta:
+        ordering = ("id",)
+
 
 class Customer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -36,6 +48,9 @@ class Customer(models.Model):
     password_hash = models.CharField(max_length=250)
     sensitive_data = models.CharField(max_length=250)
     address = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ("id",)
 
 
 class Order(models.Model):
@@ -51,6 +66,9 @@ class Order(models.Model):
         choices=OrderStatus.choices, max_length=250, default=OrderStatus.NEW
     )
 
+    class Meta:
+        ordering = ("id",)
+
 
 class OrderPosition(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
@@ -58,3 +76,6 @@ class OrderPosition(models.Model):
     quantity = models.IntegerField()
     single_price = models.DecimalField(max_digits=10, decimal_places=2)
     tax_rate = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ("id",)

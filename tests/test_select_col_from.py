@@ -139,6 +139,7 @@ def test_distinct(engine_t1):
         """
         SELECT DISTINCT category.title
         FROM products
+        ORDER BY category.title
         """
     )
     assert list(res) == [{"category.title": "Books"}, {"category.title": "DVDs"}]
