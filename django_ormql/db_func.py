@@ -53,7 +53,7 @@ class Like(Func):
     function = ""
 
 
-class TypeResolvePlugin:
+class TypeResolveMixin:
     def _resolve_output_field(self):
         # Auto-resolve of INT*DECIMAL to DECIMAL etc, TEXT and VARCHAR, etc.
         source_types = set(
@@ -123,25 +123,25 @@ class TypeResolvePlugin:
             )
 
 
-class Add(TypeResolvePlugin, Func):
+class Add(TypeResolveMixin, Func):
     arg_joiner = " + "
     arity = 2
     function = ""
 
 
-class Sub(TypeResolvePlugin, Func):
+class Sub(TypeResolveMixin, Func):
     arg_joiner = " - "
     arity = 2
     function = ""
 
 
-class Mul(TypeResolvePlugin, Func):
+class Mul(TypeResolveMixin, Func):
     arg_joiner = " * "
     arity = 2
     function = ""
 
 
-class Div(TypeResolvePlugin, Func):
+class Div(TypeResolveMixin, Func):
     arg_joiner = " / "
     arity = 2
     function = ""
@@ -158,13 +158,13 @@ class Div(TypeResolvePlugin, Func):
         )
 
 
-class Mod(TypeResolvePlugin, Func):
+class Mod(TypeResolveMixin, Func):
     arg_joiner = " %% "
     arity = 2
     function = ""
 
 
-class NumericAwareCase(TypeResolvePlugin, Case):
+class NumericAwareCase(TypeResolveMixin, Case):
     pass
 
 
@@ -172,7 +172,7 @@ class AutoTypedSubquery(Subquery):
     pass
 
 
-class PatchedConcatPair(TypeResolvePlugin, ConcatPair):
+class PatchedConcatPair(TypeResolveMixin, ConcatPair):
     pass
 
 
@@ -187,4 +187,4 @@ class PatchedConcat(Concat):
 
 
 def _patch_func(cls):
-    return type(f"Patched{cls.__name__}", (TypeResolvePlugin, cls), {})
+    return type(f"Patched{cls.__name__}", (TypeResolveMixin, cls), {})
