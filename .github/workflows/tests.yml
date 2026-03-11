@@ -45,6 +45,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Install Python dependencies
-        run: pip3 install tox tox-uv
+        run: pip3 install tox
       - name: Run tests
         run: tox run -e "${{ matrix.django }}-${{ matrix.database }}"
