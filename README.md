@@ -8,7 +8,7 @@ See [Design](doc/design.md) for more background.
 Compatibility
 -------------
 
-- Django 4.2 through 5.2
+- Django 4.2, 5.2, 6.0
 - Python versions supported by Django 4.2 through 5.2
 - SQLite and PostgreSQL
 

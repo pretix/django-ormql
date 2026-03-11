@@ -50,7 +50,7 @@ if os.environ["TOXDB"] == "postgres":
             "NAME": "testapp",
             "USER": "postgres",
             "PASSWORD": "postgres",
-            "HOST": "postgres",
+            "HOST": os.environ.get("POSTGRES_HOST", "postgres"),
         }
     }
 elif os.environ["TOXDB"] in ("mysql", "mariadb"):
