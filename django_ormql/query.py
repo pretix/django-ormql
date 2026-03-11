@@ -672,6 +672,9 @@ class Query:
 
         qs = table.base_qs
 
+        if parent_table_stack:
+            qs = qs.order_by()
+
         if root.args.get("where"):
             qs = qs.filter(
                 self._where_to_django(
