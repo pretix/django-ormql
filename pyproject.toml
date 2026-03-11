@@ -40,6 +40,7 @@ dev = [
     "factory_boy==3.*",
     "freezegun",
     "ruff",
+    "check-manifest",
 ]
 
 [tool.setuptools.dynamic]

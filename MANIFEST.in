@@ -1,0 +1,5 @@
+include LICENSE
+exclude .gitlab-ci.yml
+recursive-exclude tests *
+recursive-exclude doc *
+exclude tox.ini
