@@ -47,4 +47,4 @@ jobs:
       - name: Install Python dependencies
         run: pip3 install tox tox-uv
       - name: Run tests
-        run: tox run -e ${{ matrix.django }}-${{ matrix.database }}
+        run: tox run -e "${{ matrix.django }}-${{ matrix.database }}"
