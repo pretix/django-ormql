@@ -1,8 +1,7 @@
-import copy
 import inspect
 
 from django.db.models import F, Expression, OuterRef, Subquery
-from django.db.models.expressions import ResolvedOuterRef
+from django.db.models.expressions import ResolvedOuterRef, When
 from django.utils import tree
 from django.utils.module_loading import import_string
 
@@ -95,7 +94,20 @@ class ForeignKeyColumn(BaseColumn):
                 if isinstance(e, F):
                     e = F(f"{prefix}__{expr}")
                 children.append(e)
-            expr = expr.create(children=children, connector=expr.connector, negated=expr.negated)
+            expr = expr.create(
+                children=children, connector=expr.connector, negated=expr.negated
+            )
+        elif isinstance(expr, When):
+            # Only django-native expression with Q-object-style kwargs
+            args, kwargs = expr._constructor_args
+            args = [self._prefix_expression(a, prefix) for a in args]
+            kwargs = {
+                f"{prefix}__{k}" if k != "then" else k: self._prefix_expression(
+                    e, prefix
+                )
+                for k, e in kwargs.items()
+            }
+            expr = When(*args, **kwargs)
         elif isinstance(expr, Expression):
             args, kwargs = expr._constructor_args
             args = [self._prefix_expression(a, prefix) for a in args]

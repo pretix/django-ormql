@@ -65,6 +65,7 @@ class Order(models.Model):
     status = models.CharField(
         choices=OrderStatus.choices, max_length=250, default=OrderStatus.NEW
     )
+    comment = models.TextField(default="No comment")
 
     class Meta:
         ordering = ("id",)

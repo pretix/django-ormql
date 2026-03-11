@@ -97,6 +97,7 @@ class OrderTable(ModelTable):
             "email",
             "email_upper",
             "static_value",
+            "comment",
         ]
 
 

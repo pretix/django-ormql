@@ -1,5 +1,6 @@
 from django.core.exceptions import FieldError
 from django.db.models import Func, fields, Value, ExpressionWrapper, Case, Subquery
+from django.db.models.functions import ConcatPair, Concat
 
 
 class Equal(Func):
@@ -52,14 +53,24 @@ class Like(Func):
     function = ""
 
 
-class NumericResolveMixin:
+class TypeResolvePlugin:
     def _resolve_output_field(self):
-        # Auto-resolve of INT*DECIMAL to DECIMAL etc
+        # Auto-resolve of INT*DECIMAL to DECIMAL etc, TEXT and VARCHAR, etc.
         source_types = set(
             type(source) for source in self.get_source_fields() if source is not None
         )
+        text_types = {
+            fields.CharField,
+            fields.TextField,
+            fields.URLField,
+            fields.EmailField,
+            fields.SlugField,
+        }
+        print("sources", source_types)
         if len(source_types) == 1:
             return list(source_types)[0]()
+        elif all(s in text_types for s in source_types):
+            return fields.TextField()
         elif source_types == {fields.DecimalField, fields.IntegerField}:
             return fields.DecimalField(
                 max_digits=max(
@@ -112,25 +123,25 @@ class NumericResolveMixin:
             )
 
 
-class Add(NumericResolveMixin, Func):
+class Add(TypeResolvePlugin, Func):
     arg_joiner = " + "
     arity = 2
     function = ""
 
 
-class Sub(NumericResolveMixin, Func):
+class Sub(TypeResolvePlugin, Func):
     arg_joiner = " - "
     arity = 2
     function = ""
 
 
-class Mul(NumericResolveMixin, Func):
+class Mul(TypeResolvePlugin, Func):
     arg_joiner = " * "
     arity = 2
     function = ""
 
 
-class Div(NumericResolveMixin, Func):
+class Div(TypeResolvePlugin, Func):
     arg_joiner = " / "
     arity = 2
     function = ""
@@ -147,15 +158,33 @@ class Div(NumericResolveMixin, Func):
         )
 
 
-class Mod(NumericResolveMixin, Func):
+class Mod(TypeResolvePlugin, Func):
     arg_joiner = " %% "
     arity = 2
     function = ""
 
 
-class NumericAwareCase(NumericResolveMixin, Case):
+class NumericAwareCase(TypeResolvePlugin, Case):
     pass
 
 
 class AutoTypedSubquery(Subquery):
     pass
+
+
+class PatchedConcatPair(TypeResolvePlugin, ConcatPair):
+    pass
+
+
+class PatchedConcat(Concat):
+    def _paired(self, expressions):
+        # wrap pairs of expressions in successive concat functions
+        # exp = [a, b, c, d]
+        # -> ConcatPair(a, ConcatPair(b, ConcatPair(c, d))))
+        if len(expressions) == 2:
+            return PatchedConcatPair(*expressions)
+        return PatchedConcatPair(expressions[0], self._paired(expressions[1:]))
+
+
+def _patch_func(cls):
+    return type(f"Patched{cls.__name__}", (TypeResolvePlugin, cls), {})

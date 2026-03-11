@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from django.core.exceptions import FieldError
 from django.db import models
 from django.db.models import (
     F,
@@ -20,7 +21,7 @@ from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator, ParseEr
 from sqlglot import expressions
 
 from . import db_func
-from .db_func import NumericAwareCase
+from .db_func import NumericAwareCase, _patch_func
 from .exceptions import QueryNotSupported, QueryError
 
 logger = logging.getLogger(__name__)
@@ -134,20 +135,20 @@ aggregate_nodes = {
 }
 
 function_nodes = {
-    expressions.Coalesce: functions.Coalesce,
-    expressions.Concat: functions.Concat,
-    expressions.Greatest: functions.Greatest,
-    expressions.Least: functions.Least,
-    expressions.Abs: functions.Abs,
-    expressions.Ceil: functions.Ceil,
-    expressions.Floor: functions.Floor,
-    expressions.Mod: functions.Mod,
-    expressions.Left: functions.Left,
-    expressions.Right: functions.Right,
-    expressions.Length: functions.Length,
-    expressions.Lower: functions.Lower,
-    expressions.Upper: functions.Upper,
-    expressions.SubstringIndex: functions.StrIndex,
+    expressions.Coalesce: _patch_func(functions.Coalesce),
+    expressions.Concat: db_func.PatchedConcatPair,
+    expressions.Greatest: _patch_func(functions.Greatest),
+    expressions.Least: _patch_func(functions.Least),
+    expressions.Abs: _patch_func(functions.Abs),
+    expressions.Ceil: _patch_func(functions.Ceil),
+    expressions.Floor: _patch_func(functions.Floor),
+    expressions.Mod: _patch_func(functions.Mod),
+    expressions.Left: _patch_func(functions.Left),
+    expressions.Right: _patch_func(functions.Right),
+    expressions.Length: _patch_func(functions.Length),
+    expressions.Lower: _patch_func(functions.Lower),
+    expressions.Upper: _patch_func(functions.Upper),
+    expressions.SubstringIndex: _patch_func(functions.StrIndex),
 }
 
 types = {
@@ -854,13 +855,20 @@ class Query:
             qs, values_names = self._select_to_qs(ast, [])
         except QueryError:
             raise
+        except FieldError as e:
+            raise QueryError("Invalid combination of types") from e
         except Exception as e:
             raise QueryError("Query parsing failed") from e
 
         if isinstance(qs, dict):
             yield {values_names[k]: v for k, v in qs.items()}
         else:
-            if settings.DEBUG:
-                print(f"Generated statement: {qs.query!s}")
-            for row in qs:
-                yield {values_names[k]: v for k, v in row.items() if k in values_names}
+            try:
+                if settings.DEBUG:
+                    print(f"Generated statement: {qs.query!s}")
+                for row in qs:
+                    yield {
+                        values_names[k]: v for k, v in row.items() if k in values_names
+                    }
+            except FieldError as e:
+                raise QueryError("Invalid combination of types") from e

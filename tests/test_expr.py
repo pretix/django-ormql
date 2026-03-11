@@ -189,8 +189,10 @@ def test_case_base_when_no_else(engine_t1):
     [
         # Number functions
         ("GREATEST(4, 3, 5)", 5),
+        ("GREATEST(4, 3.4, 5)", 5),
         ("GREATEST(single_price, tax_rate)", 19),
         ("LEAST(4, 3, 5)", 3),
+        ("LEAST(4.5, 3, 5)", 3),
         ("LEAST(single_price, tax_rate)", 19),
         ("ABS(single_price)", Decimal("19.00")),
         ("ABS(-3)", 3),
@@ -259,6 +261,10 @@ def test_case_base_when_no_else(engine_t1):
         (
             "CONCAT(product.title, ' for ', order.customer.name)",
             "Lord of the rings DVD for CA",
+        ),
+        (
+            "CONCAT(order.status, ' / ', order.comment)",  # combine CharField and TextField
+            "paid / No comment",
         ),
         (
             "product.title || ' for ' || order.customer.name",
