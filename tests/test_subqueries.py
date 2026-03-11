@@ -9,7 +9,7 @@ from django_ormql.exceptions import QueryError
 def test_unrelated_subquery(engine_t1):
     res = engine_t1.query(
         """
-        SELECT (SELECT name FROM customers ORDER BY id LIMIT 1) AS result
+        SELECT (SELECT name FROM customers ORDER BY name LIMIT 1) AS result
         FROM orderpositions
         WHERE quantity = 3
         """
