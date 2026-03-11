@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - 'pretix_peppol/locale/**'
+  pull_request:
+    branches: [ main, master ]
+    paths-ignore:
+      - 'pretix_peppol/locale/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    name: Tests
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.14"]
+        database: [sqlite, postgres]
+        django: [django42, django50, django51, django52]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install Python dependencies
+        run: pip3 install tox tox-uv
+      - name: Run tests
+        run: tox run -e ${{ matrix.django }}-${{ matrix.database }}
