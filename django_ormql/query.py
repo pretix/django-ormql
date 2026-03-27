@@ -816,26 +816,24 @@ class Query:
             if order_by:
                 qs = qs.order_by(*order_by)
 
-            if root.args.get("offset") and root.args.get("limit"):
-                if not isinstance(root.args["limit"].expression, expressions.Literal):
-                    raise QueryNotSupported("LIMIT may only contain literal numbers")
-                if not isinstance(root.args["offset"].expression, expressions.Literal):
+            offset = root.args.get("offset")
+            limit = root.args.get("limit")
+            if offset:
+                if not isinstance(offset.expression, expressions.Literal):
                     raise QueryNotSupported("OFFSET may only contain literal numbers")
-                offset = int(root.args["offset"].expression.this)
+                offset = int(offset.expression.this)
+
+            if limit:
+                if not isinstance(limit.expression, expressions.Literal):
+                    raise QueryNotSupported("LIMIT may only contain literal numbers")
                 limit = int(root.args["limit"].expression.this)
+            else:
+                limit = self.default_limit
+
+            if offset is not None and limit is not None:
                 qs = qs[offset : offset + limit]
-            elif root.args.get("limit"):
-                if not isinstance(root.args["limit"].expression, expressions.Literal):
-                    raise QueryNotSupported("LIMIT may only contain literal numbers")
-                limit = int(root.args["limit"].expression.this)
-                qs = qs[:limit]
-            elif root.args.get("offset"):
-                if not isinstance(root.args["offset"].expression, expressions.Literal):
-                    raise QueryNotSupported("OFFSET may only contain literal numbers")
-                offset = int(root.args["offset"].expression.this)
-                qs = qs[offset:]
-            elif self.default_limit and not parent_table_stack:
-                qs = qs[: self.default_limit]
+            elif offset is not None or limit is not None:
+                qs = qs[offset:limit]
 
         return qs, values_names
 

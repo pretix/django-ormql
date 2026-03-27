@@ -16,6 +16,15 @@ def test_limit(engine_t1):
         {"title": "Lord of the rings"},
     ]
 
+    res = engine_t1.query(
+        """
+        SELECT title
+        FROM products
+        LIMIT 0
+        """
+    )
+    assert list(res) == []
+
 
 @pytest.mark.django_db
 def test_offset(engine_t1):
@@ -103,3 +112,71 @@ def test_limit_expr_not_allowed(engine_t1):
             """
             )
         )
+
+
+@pytest.mark.django_db
+def test_default_limit(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT title
+        FROM products
+        """,
+        default_limit=1,
+    )
+    assert list(res) == [
+        {"title": "Lord of the rings"},
+    ]
+
+    res = engine_t1.query(
+        """
+        SELECT title
+        FROM products
+        LIMIT 2
+        """,
+        default_limit=1,
+    )
+    assert list(res) == [
+        {"title": "Lord of the rings"},
+        {"title": "SQL for Dummies"},
+    ]
+
+    res = engine_t1.query(
+        """
+        SELECT title
+        FROM products
+        OFFSET 1
+        """,
+        default_limit=1,
+    )
+    assert list(res) == [
+        {"title": "SQL for Dummies"},
+    ]
+
+    res = engine_t1.query(
+        """
+        SELECT title
+        FROM products
+        """,
+        default_limit=0,
+    )
+    assert list(res) == []
+
+    res = engine_t1.query(
+        """
+        SELECT title
+        FROM products
+        OFFSET 1
+        """,
+        default_limit=0,
+    )
+    assert list(res) == []
+
+    res = engine_t1.query(
+        """
+        SELECT title
+        FROM products
+        LIMIT 1
+        """,
+        default_limit=0,
+    )
+    assert list(res) == [{"title": "Lord of the rings"}]
