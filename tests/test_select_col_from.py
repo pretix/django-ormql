@@ -335,3 +335,16 @@ def test_exclude_if_related(engine_t1):
             """
             )
         )
+
+
+@pytest.mark.django_db
+def test_non_related_join(engine_t1):
+    with pytest.raises(QueryError, match="Column 'id' is not a related field"):
+        list(
+            engine_t1.query(
+                """
+            SELECT id.id
+            FROM products
+            """
+            )
+        )
