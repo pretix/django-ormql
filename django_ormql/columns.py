@@ -21,6 +21,10 @@ class BaseColumn:
             self.source = field_name
 
     def resolve_column_path(self, remaining_path):
+        if remaining_path:
+            raise QueryNotSupported(
+                f"Column '{self.field_name}' is not a related field"
+            )
         return F(self.source)
 
     @property
