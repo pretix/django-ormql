@@ -70,7 +70,7 @@ type-name: BOOL[EAN] | [BIG]INT | DECIMAL | FLOAT | DOUBLE | JSONB | TEXT | TIME
 
 ## Syntax notes
 
-- String literals can be quited with `"` or `'`.
+- String literals can be quoted with `"` or `'`.
 - Column or table names can be escaped with <code>`</code>.
 - Column and table names are case-sensitive, syntax keywords are not.
 - Comments are supported with `--` at the start of the line or `/* comment */` syntax.
