@@ -76,7 +76,7 @@ type-name: BOOL[EAN] | [BIG]INT | DECIMAL | FLOAT | DOUBLE | JSONB | TEXT | TIME
 - Comments are supported with `--` at the start of the line or `/* comment */` syntax.
 - The result of comparisons between different types or with NULL depends on the underlying database.
 - Casting behaviour depends on the underlying database.
-- Math operations involving more than one of the numeric type are always casted to either decimal or float, i.e. `10 / 3` will not return `3`, but always `3.3333...`.
+- Math operations involving different numeric types are always casted to either decimal or float, i.e. `10 / 3` will not return `3`, but always `3.3333...`.
 - `||` is a concatenation operator and `->` a JSON traversal operator.
 
 ## Supported functions
