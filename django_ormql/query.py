@@ -19,6 +19,7 @@ from django.db.models.fields.json import KeyTransform
 from django.db.models.functions import Cast
 from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator, ParseError
 from sqlglot import expressions
+from sqlglot.errors import ANSI_UNDERLINE, ANSI_RESET
 
 from . import db_func
 from .db_func import NumericAwareCase, _patch_func
@@ -841,7 +842,8 @@ class Query:
         try:
             ast = parse_one(self.sql, dialect=OrmqlDialect)
         except ParseError as e:
-            raise QueryNotSupported(str(e)) from e
+            msg = str(e).replace(ANSI_UNDERLINE, "").replace(ANSI_RESET, "")
+            raise QueryNotSupported(msg) from e
 
         if settings.DEBUG:
             print(f"Parsed statement: {ast!r}")
