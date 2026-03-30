@@ -868,5 +868,5 @@ class Query:
                     yield {
                         values_names[k]: v for k, v in row.items() if k in values_names
                     }
-            except FieldError as e:
+            except (FieldError, ValueError) as e:
                 raise QueryError("Invalid combination of types") from e

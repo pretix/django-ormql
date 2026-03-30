@@ -122,6 +122,18 @@ def test_cast(engine_t1, expr, result):
 
 
 @pytest.mark.django_db
+def test_cast_fail(engine_t1):
+    with pytest.raises(QueryError):
+        list(
+            engine_t1.query(
+                """
+            SELECT EXTRACT("day", "2025-02-01"::DATE) FROM orderpositions
+            """
+            )
+        )
+
+
+@pytest.mark.django_db
 def test_case_when_else(engine_t1):
     res = engine_t1.query(
         """
@@ -336,7 +348,7 @@ def test_functions(engine_t1, expr, result):
     ],
 )
 def test_functions_wrong_arity_or_input(engine_t1, expr):
-    with pytest.raises((QueryError, ValueError)):
+    with pytest.raises(QueryError):
         list(
             engine_t1.query(
                 f"""
