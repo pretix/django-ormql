@@ -24,7 +24,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "sqlglot[c]==29.0.1",
+    "sqlglot[c]==30.0.3",
 ]
 dynamic = ["version"]
 
