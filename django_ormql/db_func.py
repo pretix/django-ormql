@@ -66,7 +66,6 @@ class TypeResolveMixin:
             fields.EmailField,
             fields.SlugField,
         }
-        print("sources", source_types)
         if len(source_types) == 1:
             return list(source_types)[0]()
         elif all(s in text_types for s in source_types):
