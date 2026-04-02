@@ -1,13 +1,19 @@
-tests:
-  services:
-    - postgres:15
-    - mariadb:12.2
-  variables:
-    POSTGRES_PASSWORD: postgres
-    MYSQL_ALLOW_EMPTY_PASSWORD: 1
-  image:
-    name: python:3.14-trixie
-  before_script:
-    - pip install -U tox tox-uv
-  script:
-    - tox run
+pypi:
+    image:
+        name: pretix/ci-image
+    script:
+        - cat $PYPIRC > ~/.pypirc
+        - pip install -U pip uv
+        - uv pip install --system -U setuptools wheel twine
+        - uv pip install --system -r requirements_dev.txt
+        - python setup.py sdist develop
+        - python setup.py sdist clean
+        - python setup.py sdist
+        - python setup.py bdist_wheel
+        - twine check dist/*
+        - twine check upload/*
+    only:
+        - '/^v[0-9].*$/'
+    artifacts:
+        paths:
+            - dist/
