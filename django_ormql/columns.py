@@ -9,10 +9,10 @@ from django_ormql.exceptions import QueryNotSupported
 
 
 class BaseColumn:
-    def __init__(self, **kwargs):
-        self.source = kwargs.get("source")
-        self._nullable = kwargs.get("nullable")
-        self.enum_options = kwargs.get("enum_options", None)
+    def __init__(self, *, source=None, nullable=None, enum_options=None, model_field=None):
+        self.source = source
+        self._nullable = nullable
+        self.enum_options = enum_options
 
     def bind(self, field_name, parent):
         self.field_name = field_name
