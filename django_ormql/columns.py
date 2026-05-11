@@ -186,6 +186,11 @@ class GeneratedColumn(BaseColumn):
         super().__init__(**kwargs)
 
     def resolve_column_path(self, remaining_path):
+        if remaining_path:
+            raise QueryNotSupported(
+                f"Column '{self.field_name}' is not a related field"
+            )
+
         return self.expr
 
 
