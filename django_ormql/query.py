@@ -185,6 +185,95 @@ types = {
 }
 
 
+# Maps Django's Field.get_internal_type() to the ORMQL sql_type vocabulary
+# emitted by BaseColumn.sql_type subclasses (see columns.py). Keeping one
+# vocabulary means /tables/ introspection and per-query result metadata speak
+# the same language.
+INTERNAL_TYPE_TO_SQL_TYPE = {
+    "DateField": "DATE",
+    "DateTimeField": "DATETIME",
+    "TimeField": "TIME",
+    "DurationField": "DURATION",
+    "IntegerField": "INT",
+    "BigIntegerField": "INT",
+    "SmallIntegerField": "INT",
+    "PositiveIntegerField": "INT",
+    "PositiveSmallIntegerField": "INT",
+    "PositiveBigIntegerField": "INT",
+    "AutoField": "INT",
+    "BigAutoField": "INT",
+    "SmallAutoField": "INT",
+    "DecimalField": "DECIMAL",
+    "FloatField": "FLOAT",
+    "BooleanField": "BOOLEAN",
+    "JSONField": "JSONB",
+    "CharField": "TEXT",
+    "TextField": "TEXT",
+    "EmailField": "TEXT",
+    "URLField": "TEXT",
+    "SlugField": "TEXT",
+    "UUIDField": "TEXT",
+    "GenericIPAddressField": "TEXT",
+    "FileField": "TEXT",
+    "FilePathField": "TEXT",
+    "ImageField": "TEXT",
+    "BinaryField": "TEXT",
+}
+
+
+def _describe_expression(expr, query=None):
+    """Extract (sql_type, nullable) from a Django expression's output_field.
+
+    Aggregates and Cast() / typed Func() have `.output_field` directly. Plain
+    F() references only know their field once resolved against a query; when
+    `query` is supplied, we resolve on a cloned query (so we don't mutate the
+    original with extra joins) and read `output_field` off the resolved node.
+
+    Returns ("", None) for anything we can't pin down — the frontend treats
+    that as "unknown, render opaquely" which matches the pre-metadata
+    behavior.
+    """
+    out = None
+    try:
+        out = expr.output_field
+    except Exception:
+        out = None
+    if out is None and query is not None:
+        try:
+            resolved = expr.resolve_expression(
+                query=query.chain(), allow_joins=True
+            )
+            out = resolved.output_field
+        except Exception:
+            out = None
+    if out is None:
+        return "", None
+    try:
+        internal = out.get_internal_type()
+    except Exception:
+        return "", None
+    sql_type = INTERNAL_TYPE_TO_SQL_TYPE.get(internal, "")
+    nullable = getattr(out, "null", None)
+    return sql_type, nullable
+
+
+class Result:
+    """Iterable query result carrying per-query column metadata.
+
+    Iterating yields row dicts just like the previous evaluate() generator, so
+    existing `for row in result:` / `list(result)` callers keep working. The
+    `columns` attribute is a list of {"name", "type", "nullable"} dicts using
+    the sql_type vocabulary from INTERNAL_TYPE_TO_SQL_TYPE.
+    """
+
+    def __init__(self, rows, columns):
+        self._rows = rows
+        self.columns = columns
+
+    def __iter__(self):
+        return iter(self._rows)
+
+
 class Query:
     def __init__(self, sql, tables, placeholders, timezone, default_limit):
         self.sql = sql
@@ -598,7 +687,7 @@ class Query:
         elif isinstance(expression, expressions.Subquery):
             if not isinstance(expression.this, expressions.Select):
                 raise QueryNotSupported("Only SELECT subqueries are supported")
-            qs, _ = self._select_to_qs(
+            qs, _, _ = self._select_to_qs(
                 expression.this, parent_table_stack=parent_table_stack + [table]
             )
             return db_func.AutoTypedSubquery(
@@ -607,7 +696,7 @@ class Query:
         elif isinstance(expression, expressions.Exists):
             if not isinstance(expression.this, expressions.Select):
                 raise QueryNotSupported("Only SELECT subqueries are supported")
-            qs, _ = self._select_to_qs(
+            qs, _, _ = self._select_to_qs(
                 expression.this, parent_table_stack=parent_table_stack + [table]
             )
             return models.Exists(qs)
@@ -719,6 +808,7 @@ class Query:
         values_names = {}
         aggregations = {}
         name_to_aggregation = {}
+        column_types = {}
         for i, e in enumerate(root.args["expressions"]):
             if isinstance(e, expressions.Star):
                 raise QueryNotSupported("SELECT * is not supported")
@@ -750,6 +840,9 @@ class Query:
                         parent_table_stack=parent_table_stack,
                     )
                     values_names[f"expr{i}"] = n
+                column_types[f"expr{i}"] = _describe_expression(
+                    django_e, query=qs.query
+                )
 
         if root.args.get("distinct"):
             qs = qs.distinct()
@@ -853,7 +946,7 @@ class Query:
             elif offset is not None or limit is not None:
                 qs = qs[offset:limit]
 
-        return qs, values_names
+        return qs, values_names, column_types
 
     def _flatten_unions(self, root):
         if isinstance(root, expressions.Select):
@@ -890,7 +983,7 @@ class Query:
         try:
             queries = self._flatten_unions(ast)
             results = [self._select_to_qs(query, []) for query in queries]
-            if len({len(values_names.keys()) for qs, values_names in results}) != 1:
+            if len({len(values_names.keys()) for qs, values_names, column_types in results}) != 1:
                 raise QueryError(
                     "All parts of UNION query must return same number of columns"
                 )
@@ -900,24 +993,33 @@ class Query:
             raise QueryError("Invalid combination of types") from e
         except Exception as e:
             raise QueryError("Query parsing failed") from e
-
-        return [qs for qs, values_names in results], results[0][1]
+        return [qs for qs, values_names, column_types in results], results[0][1], results[0][2]
 
     def evaluate(self):
-        querysets, values_names = self.parse()
+        querysets, values_names, column_types = self.parse()
+        columns = [
+            {
+                "name": values_names[k],
+                "type": column_types.get(k, ("", None))[0],
+                "nullable": column_types.get(k, ("", None))[1],
+            }
+            for k in values_names
+        ]
 
-        for qs in querysets:
-            if isinstance(qs, dict):
-                yield {values_names[k]: v for k, v in qs.items()}
-            else:
-                try:
-                    if settings.DEBUG:
-                        print(f"Generated statement: {qs.query!s}")
-                    for row in qs:
-                        yield {
-                            values_names[k]: v
-                            for k, v in row.items()
-                            if k in values_names
-                        }
-                except (FieldError, ValueError) as e:
-                    raise QueryError("Invalid combination of types") from e
+        def _iter():
+            for qs in querysets:
+                if isinstance(qs, dict):
+                    yield {values_names[k]: v for k, v in qs.items()}
+                else:
+                    try:
+                        if settings.DEBUG:
+                            print(f"Generated statement: {qs.query!s}")
+                        for row in qs:
+                            yield {
+                                values_names[k]: v
+                                for k, v in row.items()
+                                if k in values_names
+                            }
+                    except (FieldError, ValueError) as e:
+                        raise QueryError("Invalid combination of types") from e
+        return Result(_iter(), columns)
