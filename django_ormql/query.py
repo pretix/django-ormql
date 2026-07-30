@@ -846,22 +846,15 @@ class Query:
 
         return qs, values_names
 
-    def _union_to_qs(self, root: expressions.Union):
-        if isinstance(root.left, expressions.Union):
-            qs_left, values_names = self._union_to_qs(root.left)
-        elif isinstance(root.left, expressions.Subquery) and isinstance(root.left.this, expressions.Select):
-            qs_left, values_names = self._select_to_qs(root.left.this, [])
+    def _flatten_unions(self, root):
+        if isinstance(root, expressions.Select):
+            return [root]
+        elif isinstance(root, expressions.Subquery) and isinstance(root.this, expressions.Select):
+            return [root.this]
+        elif isinstance(root, expressions.Union):
+            return self._flatten_unions(root.left) + self._flatten_unions(root.right)
         else:
-            qs_left, values_names = self._select_to_qs(root.left, [])
-        if isinstance(root.right, expressions.Union):
-            qs_right, _ = self._union_to_qs(root.right)
-        elif isinstance(root.right, expressions.Subquery) and isinstance(root.right.this, expressions.Select):
-            qs_right, _ = self._select_to_qs(root.right.this, [])
-        else:
-            qs_right, _ = self._select_to_qs(root.right, [])
-        if isinstance(qs_left, dict) or isinstance(qs_right, dict):
-            raise QueryError("Unsupported UNION components")
-        return qs_left.union(qs_right), values_names
+            raise QueryNotSupported("Only SELECT and SELECT ... UNION queries are supported")
 
     def parse(self):
         try:
@@ -874,10 +867,8 @@ class Query:
             print(f"Parsed statement: {ast!r}")
 
         try:
-            if isinstance(ast, expressions.Union):
-                qs, values_names = self._union_to_qs(ast)
-            else:
-                qs, values_names = self._select_to_qs(ast, [])
+            queries = self._flatten_unions(ast)
+            results = [self._select_to_qs(query, []) for query in queries]
         except QueryError:
             raise
         except FieldError as e:
@@ -885,20 +876,21 @@ class Query:
         except Exception as e:
             raise QueryError("Query parsing failed") from e
 
-        return qs, values_names
+        return [qs for qs, values_names in results], results[0][1]
 
     def evaluate(self):
-        qs, values_names = self.parse()
+        querysets, values_names = self.parse()
 
-        if isinstance(qs, dict):
-            yield {values_names[k]: v for k, v in qs.items()}
-        else:
-            try:
-                if settings.DEBUG:
-                    print(f"Generated statement: {qs.query!s}")
-                for row in qs:
-                    yield {
-                        values_names[k]: v for k, v in row.items() if k in values_names
-                    }
-            except (FieldError, ValueError) as e:
-                raise QueryError("Invalid combination of types") from e
+        for qs in querysets:
+            if isinstance(qs, dict):
+                yield {values_names[k]: v for k, v in qs.items()}
+            else:
+                try:
+                    if settings.DEBUG:
+                        print(f"Generated statement: {qs.query!s}")
+                    for row in qs:
+                        yield {
+                            values_names[k]: v for k, v in row.items() if k in values_names
+                        }
+                except (FieldError, ValueError) as e:
+                    raise QueryError("Invalid combination of types") from e
