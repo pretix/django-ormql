@@ -202,3 +202,17 @@ def test_invalid_outerref(engine_t1):
             """
             )
         )
+
+
+@pytest.mark.django_db
+def test_union_subquery_not_allowed(engine_t1):
+    with pytest.raises(QueryError, match="Only SELECT subqueries are supported"):
+        list(
+            engine_t1.query(
+                """
+            SELECT title
+            FROM products
+            WHERE EXISTS(SELECT 1 FROM orderpositions WHERE product = OUTER(id) AND order.status = "paid" UNION SELECT 1 FROM orderpositions WHERE product = OUTER(id) AND order.status = "canceled")
+            """
+            )
+        )
