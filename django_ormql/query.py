@@ -872,6 +872,8 @@ class Query:
         try:
             queries = self._flatten_unions(ast)
             results = [self._select_to_qs(query, []) for query in queries]
+            if len(set(len(values_names.keys()) for qs, values_names in results)) != 1:
+                raise QueryError("All parts of UNION query must return same number of columns")
         except QueryError:
             raise
         except FieldError as e:
