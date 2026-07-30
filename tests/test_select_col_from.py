@@ -234,7 +234,7 @@ def test_undeclared_field(engine_t1):
 
 @pytest.mark.django_db
 def test_compound_not_allowed(engine_t1):
-    with pytest.raises(QueryError, match="Invalid expression / Unexpected token"):
+    with pytest.raises(QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"):
         list(
             engine_t1.query(
                 """
@@ -273,8 +273,86 @@ def test_compound_not_allowed(engine_t1):
 
 
 @pytest.mark.django_db
+def test_union_modifiers_not_allowed(engine_t1):
+    with pytest.raises(QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"):
+        list(
+            engine_t1.query(
+                """
+            SELECT title
+            FROM categories
+            UNION
+            SELECT title
+            FROM products
+            """
+            )
+        )
+    with pytest.raises(QueryError, match="ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries"):
+        list(
+            engine_t1.query(
+                """
+            SELECT title
+            FROM categories
+            UNION ALL
+            SELECT title
+            FROM products
+            LIMIT 1
+            """
+            )
+        )
+    with pytest.raises(QueryError, match="ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries"):
+        list(
+            engine_t1.query(
+                """
+            SELECT title
+            FROM categories
+            UNION ALL
+            SELECT title
+            FROM products
+            ORDER BY title
+            """
+            )
+        )
+
+
+@pytest.mark.django_db
+def test_union(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT 'Category' type, title
+        FROM categories
+        UNION ALL
+        SELECT 'Product' type, title
+        FROM products
+        """
+    )
+    assert list(res) == [
+        {"type": "Category", "title": "Books"},
+        {"type": "Category", "title": "DVDs"},
+        {"type": "Product", "title": "Lord of the rings"},
+        {"type": "Product", "title": "SQL for Dummies"},
+        {"type": "Product", "title": "Lord of the rings DVD"},
+    ]
+    res = engine_t1.query(
+        """
+        (SELECT 'Category' type, title
+        FROM categories ORDER BY title DESC)
+        UNION ALL
+        (SELECT 'Product' type, title
+        FROM products ORDER BY title DESC)
+        """
+    )
+    assert list(res) == [
+        {"type": "Category", "title": "DVDs"},
+        {"type": "Category", "title": "Books"},
+        {"type": "Product", "title": "SQL for Dummies"},
+        {"type": "Product", "title": "Lord of the rings DVD"},
+        {"type": "Product", "title": "Lord of the rings"},
+    ]
+
+
+@pytest.mark.django_db
 def test_values_query_not_allowed(engine_t1):
-    with pytest.raises(QueryError, match="Only SELECT queries are supported"):
+    with pytest.raises(QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"):
         list(
             engine_t1.query(
                 """
