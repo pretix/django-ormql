@@ -104,6 +104,7 @@ class OrmqlDialect(Dialect):
             "TIME": TokenType.TIME,
             "DATE": TokenType.DATE,
             "DATETIME": TokenType.DATETIME,
+            "UNION": TokenType.UNION,
         }
 
     class Generator(Generator):
@@ -661,6 +662,9 @@ class Query:
         return self._expression_to_django(node, **kwargs)
 
     def _select_to_qs(self, root, parent_table_stack):
+        if not isinstance(root, expressions.Select):
+            raise QueryNotSupported("Only SELECT queries are supported")
+
         table = root.args["from_"].this
         if not isinstance(table, expressions.Table):
             raise QueryNotSupported("Unsupported FROM statement")
@@ -842,6 +846,23 @@ class Query:
 
         return qs, values_names
 
+    def _union_to_qs(self, root: expressions.Union):
+        if isinstance(root.left, expressions.Union):
+            qs_left, values_names = self._union_to_qs(root.left)
+        elif isinstance(root.left, expressions.Subquery) and isinstance(root.left.this, expressions.Select):
+            qs_left, values_names = self._select_to_qs(root.left.this, [])
+        else:
+            qs_left, values_names = self._select_to_qs(root.left, [])
+        if isinstance(root.right, expressions.Union):
+            qs_right, _ = self._union_to_qs(root.right)
+        elif isinstance(root.right, expressions.Subquery) and isinstance(root.right.this, expressions.Select):
+            qs_right, _ = self._select_to_qs(root.right.this, [])
+        else:
+            qs_right, _ = self._select_to_qs(root.right, [])
+        if isinstance(qs_left, dict) or isinstance(qs_right, dict):
+            raise QueryError("Unsupported UNION components")
+        return qs_left.union(qs_right), values_names
+
     def parse(self):
         try:
             ast = parse_one(self.sql, dialect=OrmqlDialect)
@@ -852,11 +873,11 @@ class Query:
         if settings.DEBUG:
             print(f"Parsed statement: {ast!r}")
 
-        if not isinstance(ast, expressions.Select):
-            raise QueryNotSupported("Only SELECT queries are supported")
-
         try:
-            qs, values_names = self._select_to_qs(ast, [])
+            if isinstance(ast, expressions.Union):
+                qs, values_names = self._union_to_qs(ast)
+            else:
+                qs, values_names = self._select_to_qs(ast, [])
         except QueryError:
             raise
         except FieldError as e:
