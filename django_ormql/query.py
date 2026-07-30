@@ -41,8 +41,6 @@ class OrmqlDialect(Dialect):
     QUOTE_END = "'"
     IDENTIFIER_START = "`"
     IDENTIFIER_END = "`"
-    MODIFIERS_ATTACHED_TO_SET_OP = False
-    SET_OP_MODIFIERS = {}
 
     class Tokenizer(Tokenizer):
         QUOTES = ["'", '"']
