@@ -41,6 +41,8 @@ class OrmqlDialect(Dialect):
     QUOTE_END = "'"
     IDENTIFIER_START = "`"
     IDENTIFIER_END = "`"
+    MODIFIERS_ATTACHED_TO_SET_OP = False
+    SET_OP_MODIFIERS = {}
 
     class Tokenizer(Tokenizer):
         QUOTES = ["'", '"']
@@ -55,6 +57,7 @@ class OrmqlDialect(Dialect):
             "!=": TokenType.NEQ,
             "||": TokenType.DPIPE,
             "->": TokenType.ARROW,
+            "ALL": TokenType.ALL,
             "AND": TokenType.AND,
             "ASC": TokenType.ASC,
             "AS": TokenType.ALIAS,
@@ -89,6 +92,7 @@ class OrmqlDialect(Dialect):
             "SELECT": TokenType.SELECT,
             "THEN": TokenType.THEN,
             "TRUE": TokenType.TRUE,
+            "UNION": TokenType.UNION,
             "WHEN": TokenType.WHEN,
             "WHERE": TokenType.WHERE,
             # TYPES
@@ -104,7 +108,6 @@ class OrmqlDialect(Dialect):
             "TIME": TokenType.TIME,
             "DATE": TokenType.DATE,
             "DATETIME": TokenType.DATETIME,
-            "UNION": TokenType.UNION,
         }
 
     class Generator(Generator):
@@ -851,10 +854,12 @@ class Query:
             return [root]
         elif isinstance(root, expressions.Subquery) and isinstance(root.this, expressions.Select):
             return [root.this]
-        elif isinstance(root, expressions.Union):
+        elif isinstance(root, expressions.Union) and not root.args['distinct']:
+            if root.args.get('limit') or root.args.get('order') or root.args.get('offset'):
+                raise QueryError("ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries")
             return self._flatten_unions(root.left) + self._flatten_unions(root.right)
         else:
-            raise QueryNotSupported("Only SELECT and SELECT ... UNION queries are supported")
+            raise QueryNotSupported("Only SELECT and SELECT ... UNION ALL queries are supported")
 
     def parse(self):
         try:
