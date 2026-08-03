@@ -2,7 +2,6 @@ import os
 
 from django.utils.translation import gettext_lazy as _
 
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = "kk0ai8i0dm-8^%&0&+e-rsmk8#t&)6r*y!wh=xx7l12+6k5mg4"
 
@@ -114,7 +113,7 @@ LOGGING = {
 
 
 # Don't run migrations
-class DisableMigrations(object):
+class DisableMigrations:
     def __contains__(self, item):
         return True
 

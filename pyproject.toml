@@ -48,3 +48,6 @@ version = { attr = "django_ormql.version" }
 
 [tool.setuptools.packages.find]
 include = ["django_ormql*"]
+
+[tool.ruff.lint]
+ignore = ["RUF012", "UP031", "RUF059", "RUF015", "FLY002", "SIM101", "SIM102"]

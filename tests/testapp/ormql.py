@@ -1,10 +1,11 @@
-from django.db.models import Case, When, Value, F, Subquery, OuterRef, Count
+from django.db.models import Case, Count, F, OuterRef, Subquery, Value, When
 from django.db.models.functions import Upper
 
+from django_ormql.columns import ForeignKeyColumn, GeneratedColumn, ModelColumn
 from django_ormql.engine import QueryEngine
 from django_ormql.tables import ModelTable
-from django_ormql.columns import ForeignKeyColumn, GeneratedColumn, ModelColumn
-from .models import Category, Tag, Product, Customer, Order, OrderPosition
+
+from .models import Category, Customer, Order, OrderPosition, Product, Tag
 
 
 class CategoryTable(ModelTable):

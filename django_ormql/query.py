@@ -4,26 +4,33 @@ from django.conf import settings
 from django.core.exceptions import FieldError
 from django.db import models
 from django.db.models import (
-    F,
-    Value,
-    Q,
-    ExpressionWrapper,
     BooleanField,
-    aggregates,
+    ExpressionWrapper,
+    F,
     OrderBy,
+    OuterRef,
+    Q,
+    Value,
+    aggregates,
     functions,
     lookups,
-    OuterRef,
 )
 from django.db.models.fields.json import KeyTransform
 from django.db.models.functions import Cast
-from sqlglot import parse_one, Dialect, Tokenizer, TokenType, Generator, ParseError
-from sqlglot import expressions
-from sqlglot.errors import ANSI_UNDERLINE, ANSI_RESET
+from sqlglot import (
+    Dialect,
+    Generator,
+    ParseError,
+    Tokenizer,
+    TokenType,
+    expressions,
+    parse_one,
+)
+from sqlglot.errors import ANSI_RESET, ANSI_UNDERLINE
 
 from . import db_func
 from .db_func import NumericAwareCase, _patch_func
-from .exceptions import QueryNotSupported, QueryError
+from .exceptions import QueryError, QueryNotSupported
 
 logger = logging.getLogger(__name__)
 
@@ -626,12 +633,7 @@ class Query:
                     expression.expression.this,
                     self._expression_to_django(expression.this, **kwargs),
                 )
-            elif isinstance(expression.expression, expressions.Column):
-                return KeyTransform(
-                    expression.expression.this.this,
-                    self._expression_to_django(expression.this, **kwargs),
-                )
-            elif isinstance(expression.expression, expressions.Identifier):
+            elif isinstance(expression.expression, expressions.Column) or isinstance(expression.expression, expressions.Identifier):
                 return KeyTransform(
                     expression.expression.this.this,
                     self._expression_to_django(expression.this, **kwargs),

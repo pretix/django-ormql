@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from django_ormql.exceptions import QueryNotSupported, QueryError
+from django_ormql.exceptions import QueryError, QueryNotSupported
 
 
 @pytest.mark.django_db

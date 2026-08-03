@@ -32,7 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import inspect
 from collections import namedtuple
-from typing import MutableMapping
+from collections.abc import MutableMapping
 
 
 class BindingDict(MutableMapping):

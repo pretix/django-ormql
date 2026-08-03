@@ -1,6 +1,6 @@
 from django.core.exceptions import FieldError
-from django.db.models import Func, fields, Value, ExpressionWrapper, Case, Subquery
-from django.db.models.functions import ConcatPair, Concat
+from django.db.models import Case, ExpressionWrapper, Func, Subquery, Value, fields
+from django.db.models.functions import Concat, ConcatPair
 
 
 class Equal(Func):
@@ -56,9 +56,9 @@ class Like(Func):
 class TypeResolveMixin:
     def _resolve_output_field(self):
         # Auto-resolve of INT*DECIMAL to DECIMAL etc, TEXT and VARCHAR, etc.
-        source_types = set(
+        source_types = {
             type(source) for source in self.get_source_fields() if source is not None
-        )
+        }
         text_types = {
             fields.CharField,
             fields.TextField,
@@ -85,20 +85,7 @@ class TypeResolveMixin:
             )
         elif source_types == {fields.FloatField, fields.IntegerField}:
             return fields.FloatField()
-        elif source_types == {fields.FloatField, fields.DecimalField}:
-            return fields.DecimalField(
-                max_digits=max(
-                    f.max_digits
-                    for f in self.get_source_fields()
-                    if isinstance(f, fields.DecimalField)
-                ),
-                decimal_places=max(
-                    f.decimal_places
-                    for f in self.get_source_fields()
-                    if isinstance(f, fields.DecimalField)
-                ),
-            )
-        elif source_types == {
+        elif source_types == {fields.FloatField, fields.DecimalField} or source_types == {
             fields.FloatField,
             fields.DecimalField,
             fields.IntegerField,
