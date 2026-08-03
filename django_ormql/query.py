@@ -842,7 +842,7 @@ class Query:
 
         return qs, values_names
 
-    def evaluate(self):
+    def parse(self):
         try:
             ast = parse_one(self.sql, dialect=OrmqlDialect)
         except ParseError as e:
@@ -863,6 +863,11 @@ class Query:
             raise QueryError("Invalid combination of types") from e
         except Exception as e:
             raise QueryError("Query parsing failed") from e
+
+        return qs, values_names
+
+    def evaluate(self):
+        qs, values_names = self.parse()
 
         if isinstance(qs, dict):
             yield {values_names[k]: v for k, v in qs.items()}

@@ -16,11 +16,16 @@ class QueryEngine:
         placeholders=None,
         timezone=datetime.timezone.utc,
         default_limit=None,
+        dry_run=False,
     ):
-        return Query(
+        query = Query(
             query,
             self.tables,
             placeholders,
             timezone,
             default_limit,
-        ).evaluate()
+        )
+        if dry_run:
+            return query.parse()
+        else:
+            return query.evaluate()
