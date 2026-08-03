@@ -85,7 +85,10 @@ class TypeResolveMixin:
             )
         elif source_types == {fields.FloatField, fields.IntegerField}:
             return fields.FloatField()
-        elif source_types == {fields.FloatField, fields.DecimalField} or source_types == {
+        elif source_types == {
+            fields.FloatField,
+            fields.DecimalField,
+        } or source_types == {
             fields.FloatField,
             fields.DecimalField,
             fields.IntegerField,

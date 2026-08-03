@@ -633,7 +633,9 @@ class Query:
                     expression.expression.this,
                     self._expression_to_django(expression.this, **kwargs),
                 )
-            elif isinstance(expression.expression, expressions.Column) or isinstance(expression.expression, expressions.Identifier):
+            elif isinstance(expression.expression, expressions.Column) or isinstance(
+                expression.expression, expressions.Identifier
+            ):
                 return KeyTransform(
                     expression.expression.this.this,
                     self._expression_to_django(expression.this, **kwargs),

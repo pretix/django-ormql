@@ -7,12 +7,8 @@ Every table needs to be registered with a base queryset:
 from django_ormql.engine import QueryEngine
 
 engine = QueryEngine()
-engine.register_table(CategoryTable(
-    base_qs=Category.objects.filter(tenant=tenant)
-))
-engine.register_table(ProductTable(
-    base_qs=Product.objects.filter(tenant=tenant)
-))
+engine.register_table(CategoryTable(base_qs=Category.objects.filter(tenant=tenant)))
+engine.register_table(ProductTable(base_qs=Product.objects.filter(tenant=tenant)))
 ```
 
 Then, you can run the query like this:
@@ -45,7 +41,7 @@ engine.query(
     SELECT id FROM categories
     WHERE id = :my_id
     """,
-    placeholders={"my_id": 3}
+    placeholders={"my_id": 3},
 )
 ```
 
@@ -58,7 +54,7 @@ engine.query(
     """
     SELECT id FROM categories
     """,
-    timezone=zoneinfo.ZoneInfo("Europe/Berlin")
+    timezone=zoneinfo.ZoneInfo("Europe/Berlin"),
 )
 ```
 

@@ -110,7 +110,6 @@ from django_ormql.columns import GeneratedColumn
 
 
 class OrderTable(ModelTable):
-
     class Meta:
         name = "orders"
         model = Order
