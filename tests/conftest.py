@@ -15,13 +15,13 @@ django.setup()
 @freeze_time("2024-12-14 03:13:14+01:00")
 def dataset1():
     from .testapp.factories import (
-        TenantFactory,
         CategoryFactory,
-        TagFactory,
-        ProductFactory,
         CustomerFactory,
         OrderFactory,
         OrderPositionFactory,
+        ProductFactory,
+        TagFactory,
+        TenantFactory,
     )
     from .testapp.models import Order
 

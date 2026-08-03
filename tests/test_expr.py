@@ -20,7 +20,7 @@ tz_ny = zoneinfo.ZoneInfo("America/New_York")
         ('"foo"', "foo"),
         ("'foo'", "foo"),
         # Number formats
-        ("10e2", Decimal("1000")),
+        ("10e2", Decimal(1000)),
         # Binary operators
         ("10.5::float + 10::int", Decimal("20.5")),
         ("single_price::decimal + 10.5::float + 10::int", Decimal("39.5")),
@@ -48,10 +48,10 @@ tz_ny = zoneinfo.ZoneInfo("America/New_York")
         ("single_price BETWEEN 19 AND 20", True),
         ("TRUE AND FALSE", False),
         # Unary operators
-        ("+single_price", Decimal("19")),
-        ("-single_price", Decimal("-19")),
+        ("+single_price", Decimal(19)),
+        ("-single_price", Decimal(-19)),
         # Combinations
-        ("-(single_price + 1)", Decimal("-20")),
+        ("-(single_price + 1)", Decimal(-20)),
         ("(single_price - 1) * 10", Decimal("180.00")),
     ],
 )
@@ -72,8 +72,8 @@ def test_simple_math(engine_t1, expr, result):
 @pytest.mark.parametrize(
     "expr,result",
     [
-        ("CAST(single_price AS TEXT)", re.compile("19(\.00)?")),
-        ("single_price::TEXT", re.compile("19(\.00)?")),
+        ("CAST(single_price AS TEXT)", re.compile(r"19(\.00)?")),
+        ("single_price::TEXT", re.compile(r"19(\.00)?")),
         ("CAST(single_price AS INT)", 19),
         ("single_price::INT", 19),
         ("CAST(single_price AS BIGINT)", 19),
@@ -146,10 +146,10 @@ def test_case_when_else(engine_t1):
         """
     )
     assert list(res) == [
-        {"revenue": Decimal("0")},
-        {"revenue": Decimal("0")},
+        {"revenue": Decimal(0)},
+        {"revenue": Decimal(0)},
         {"revenue": Decimal("21.40")},
-        {"revenue": Decimal("19")},
+        {"revenue": Decimal(19)},
         {"revenue": Decimal("10.70")},
     ]
 
@@ -167,10 +167,10 @@ def test_case_base_when_else(engine_t1):
         """
     )
     assert list(res) == [
-        {"revenue": Decimal("0")},
-        {"revenue": Decimal("0")},
+        {"revenue": Decimal(0)},
+        {"revenue": Decimal(0)},
         {"revenue": Decimal("21.40")},
-        {"revenue": Decimal("19")},
+        {"revenue": Decimal(19)},
         {"revenue": Decimal("10.70")},
     ]
 
@@ -190,7 +190,7 @@ def test_case_base_when_no_else(engine_t1):
         {"revenue": None},
         {"revenue": None},
         {"revenue": Decimal("21.40")},
-        {"revenue": Decimal("19")},
+        {"revenue": Decimal(19)},
         {"revenue": Decimal("10.70")},
     ]
 

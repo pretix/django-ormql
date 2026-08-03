@@ -1,6 +1,6 @@
 import inspect
 
-from django.db.models import F, Expression, OuterRef, Subquery
+from django.db.models import Expression, F, OuterRef, Subquery
 from django.db.models.expressions import ResolvedOuterRef, When
 from django.utils import tree
 from django.utils.module_loading import import_string

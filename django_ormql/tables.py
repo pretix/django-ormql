@@ -7,18 +7,18 @@ from django.utils.functional import cached_property
 from . import model_utils
 from .columns import (
     BaseColumn,
-    get_column_kwargs,
-    ModelColumn,
     BooleanColumn,
     DateColumn,
     DateTimeColumn,
     DecimalColumn,
     DurationColumn,
-    TimeColumn,
-    TextColumn,
-    IntColumn,
     FloatColumn,
+    IntColumn,
     JsonColumn,
+    ModelColumn,
+    TextColumn,
+    TimeColumn,
+    get_column_kwargs,
 )
 from .exceptions import QueryError
 
@@ -123,20 +123,16 @@ class ModelTable(Table):
 
     def get_columns(self):
         assert hasattr(self, "Meta"), (
-            'Class {table_class} missing "Meta" attribute'.format(
-                table_class=self.__class__.__name__
-            )
+            f'Class {self.__class__.__name__} missing "Meta" attribute'
         )
         assert hasattr(self.Meta, "model"), (
-            'Class {table_class} missing "Meta.model" attribute'.format(
-                table_class=self.__class__.__name__
-            )
+            f'Class {self.__class__.__name__} missing "Meta.model" attribute'
         )
         if model_utils.is_abstract_model(self.Meta.model):
             raise ValueError("Cannot use ModelSerializer with Abstract Models.")
 
         declared_columns = copy.deepcopy(self._declared_columns)
-        model = getattr(self.Meta, "model")
+        model = self.Meta.model
 
         # Retrieve metadata about columns & relationships on the model class.
         info = model_utils.get_field_info(model)
@@ -197,11 +193,9 @@ class ModelTable(Table):
 
         for column_name in required_column_names:
             assert column_name in columns, (
-                "The column '{column_name}' was declared on table "
-                "{table_class}, but has not been included in the "
-                "'columns' option.".format(
-                    column_name=column_name, table_class=self.__class__.__name__
-                )
+                f"The column '{column_name}' was declared on table "
+                f"{self.__class__.__name__}, but has not been included in the "
+                "'columns' option."
             )
         return columns
 

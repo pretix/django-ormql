@@ -6,7 +6,7 @@ import factory
 from django.utils.crypto import get_random_string
 from factory.django import DjangoModelFactory
 
-from .models import Tenant, Category, Tag, Product, Customer, Order, OrderPosition
+from .models import Category, Customer, Order, OrderPosition, Product, Tag, Tenant
 
 
 class TenantFactory(DjangoModelFactory):
