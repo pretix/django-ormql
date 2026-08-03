@@ -234,7 +234,9 @@ def test_undeclared_field(engine_t1):
 
 @pytest.mark.django_db
 def test_compound_not_allowed(engine_t1):
-    with pytest.raises(QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"):
+    with pytest.raises(
+        QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"
+    ):
         list(
             engine_t1.query(
                 """
@@ -274,7 +276,9 @@ def test_compound_not_allowed(engine_t1):
 
 @pytest.mark.django_db
 def test_values_query_not_allowed(engine_t1):
-    with pytest.raises(QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"):
+    with pytest.raises(
+        QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"
+    ):
         list(
             engine_t1.query(
                 """

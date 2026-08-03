@@ -2,12 +2,14 @@ from decimal import Decimal
 
 import pytest
 
-from django_ormql.exceptions import QueryNotSupported, QueryError
+from django_ormql.exceptions import QueryError
 
 
 @pytest.mark.django_db
 def test_union_modifiers_not_allowed(engine_t1):
-    with pytest.raises(QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"):
+    with pytest.raises(
+        QueryError, match="Only SELECT and SELECT ... UNION ALL queries are supported"
+    ):
         list(
             engine_t1.query(
                 """
@@ -19,7 +21,10 @@ def test_union_modifiers_not_allowed(engine_t1):
             """
             )
         )
-    with pytest.raises(QueryError, match="ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries"):
+    with pytest.raises(
+        QueryError,
+        match="ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries",
+    ):
         list(
             engine_t1.query(
                 """
@@ -32,7 +37,10 @@ def test_union_modifiers_not_allowed(engine_t1):
             """
             )
         )
-    with pytest.raises(QueryError, match="ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries"):
+    with pytest.raises(
+        QueryError,
+        match="ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries",
+    ):
         list(
             engine_t1.query(
                 """
@@ -85,7 +93,9 @@ def test_union(engine_t1):
 
 @pytest.mark.django_db
 def test_union_col_count(engine_t1):
-    with pytest.raises(QueryError, match="All parts of UNION query must return same number of columns"):
+    with pytest.raises(
+        QueryError, match="All parts of UNION query must return same number of columns"
+    ):
         list(
             engine_t1.query(
                 """
@@ -98,7 +108,9 @@ def test_union_col_count(engine_t1):
             """
             )
         )
-    with pytest.raises(QueryError, match="All parts of UNION query must return same number of columns"):
+    with pytest.raises(
+        QueryError, match="All parts of UNION query must return same number of columns"
+    ):
         list(
             engine_t1.query(
                 """
@@ -127,9 +139,24 @@ def test_union_grouped(engine_t1):
     assert list(res) == [
         {"type": "Category", "title": "Books", "sales": 0, "total": 0},
         {"type": "Category", "title": "DVDs", "sales": 0, "total": 0},
-        {"type": "Product", "title": "Lord of the rings", "sales": 3, "total": Decimal('32.10')},
-        {"type": "Product", "title": "SQL for Dummies", "sales": 1, "total": Decimal('21.40')},
-        {"type": "Product", "title": "Lord of the rings DVD", "sales": 4, "total": Decimal('76.00')},
+        {
+            "type": "Product",
+            "title": "Lord of the rings",
+            "sales": 3,
+            "total": Decimal("32.10"),
+        },
+        {
+            "type": "Product",
+            "title": "SQL for Dummies",
+            "sales": 1,
+            "total": Decimal("21.40"),
+        },
+        {
+            "type": "Product",
+            "title": "Lord of the rings DVD",
+            "sales": 4,
+            "total": Decimal("76.00"),
+        },
     ]
     res = engine_t1.query(
         """
@@ -143,9 +170,24 @@ def test_union_grouped(engine_t1):
         """
     )
     assert list(res) == [
-        {"type": "Category", "title": "Books", "sales": 4, "total": Decimal('53.50')},
-        {"type": "Category", "title": "DVDs", "sales": 4, "total": Decimal('76.00')},
-        {"type": "Product", "title": "Lord of the rings", "sales": 3, "total": Decimal('32.10')},
-        {"type": "Product", "title": "SQL for Dummies", "sales": 1, "total": Decimal('21.40')},
-        {"type": "Product", "title": "Lord of the rings DVD", "sales": 4, "total": Decimal('76.00')},
+        {"type": "Category", "title": "Books", "sales": 4, "total": Decimal("53.50")},
+        {"type": "Category", "title": "DVDs", "sales": 4, "total": Decimal("76.00")},
+        {
+            "type": "Product",
+            "title": "Lord of the rings",
+            "sales": 3,
+            "total": Decimal("32.10"),
+        },
+        {
+            "type": "Product",
+            "title": "SQL for Dummies",
+            "sales": 1,
+            "total": Decimal("21.40"),
+        },
+        {
+            "type": "Product",
+            "title": "Lord of the rings DVD",
+            "sales": 4,
+            "total": Decimal("76.00"),
+        },
     ]

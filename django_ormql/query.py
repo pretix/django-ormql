@@ -850,14 +850,24 @@ class Query:
     def _flatten_unions(self, root):
         if isinstance(root, expressions.Select):
             return [root]
-        elif isinstance(root, expressions.Subquery) and isinstance(root.this, expressions.Select):
+        elif isinstance(root, expressions.Subquery) and isinstance(
+            root.this, expressions.Select
+        ):
             return [root.this]
-        elif isinstance(root, expressions.Union) and not root.args['distinct']:
-            if root.args.get('limit') or root.args.get('order') or root.args.get('offset'):
-                raise QueryError("ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries")
+        elif isinstance(root, expressions.Union) and not root.args["distinct"]:
+            if (
+                root.args.get("limit")
+                or root.args.get("order")
+                or root.args.get("offset")
+            ):
+                raise QueryError(
+                    "ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries"
+                )
             return self._flatten_unions(root.left) + self._flatten_unions(root.right)
         else:
-            raise QueryNotSupported("Only SELECT and SELECT ... UNION ALL queries are supported")
+            raise QueryNotSupported(
+                "Only SELECT and SELECT ... UNION ALL queries are supported"
+            )
 
     def parse(self):
         try:
@@ -872,8 +882,10 @@ class Query:
         try:
             queries = self._flatten_unions(ast)
             results = [self._select_to_qs(query, []) for query in queries]
-            if len(set(len(values_names.keys()) for qs, values_names in results)) != 1:
-                raise QueryError("All parts of UNION query must return same number of columns")
+            if len({len(values_names.keys()) for qs, values_names in results}) != 1:
+                raise QueryError(
+                    "All parts of UNION query must return same number of columns"
+                )
         except QueryError:
             raise
         except FieldError as e:
@@ -895,7 +907,9 @@ class Query:
                         print(f"Generated statement: {qs.query!s}")
                     for row in qs:
                         yield {
-                            values_names[k]: v for k, v in row.items() if k in values_names
+                            values_names[k]: v
+                            for k, v in row.items()
+                            if k in values_names
                         }
                 except (FieldError, ValueError) as e:
                     raise QueryError("Invalid combination of types") from e
