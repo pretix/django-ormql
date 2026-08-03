@@ -55,6 +55,7 @@ class OrmqlDialect(Dialect):
             "!=": TokenType.NEQ,
             "||": TokenType.DPIPE,
             "->": TokenType.ARROW,
+            "ALL": TokenType.ALL,
             "AND": TokenType.AND,
             "ASC": TokenType.ASC,
             "AS": TokenType.ALIAS,
@@ -89,6 +90,7 @@ class OrmqlDialect(Dialect):
             "SELECT": TokenType.SELECT,
             "THEN": TokenType.THEN,
             "TRUE": TokenType.TRUE,
+            "UNION": TokenType.UNION,
             "WHEN": TokenType.WHEN,
             "WHERE": TokenType.WHERE,
             # TYPES
@@ -661,6 +663,9 @@ class Query:
         return self._expression_to_django(node, **kwargs)
 
     def _select_to_qs(self, root, parent_table_stack):
+        if not isinstance(root, expressions.Select):
+            raise QueryNotSupported("Only SELECT queries are supported")
+
         table = root.args["from_"].this
         if not isinstance(table, expressions.Table):
             raise QueryNotSupported("Unsupported FROM statement")
@@ -842,6 +847,28 @@ class Query:
 
         return qs, values_names
 
+    def _flatten_unions(self, root):
+        if isinstance(root, expressions.Select):
+            return [root]
+        elif isinstance(root, expressions.Subquery) and isinstance(
+            root.this, expressions.Select
+        ):
+            return [root.this]
+        elif isinstance(root, expressions.Union) and not root.args["distinct"]:
+            if (
+                root.args.get("limit")
+                or root.args.get("order")
+                or root.args.get("offset")
+            ):
+                raise QueryError(
+                    "ORDER, LIMIT and OFFSET modifiers are not supported on UNION queries"
+                )
+            return self._flatten_unions(root.left) + self._flatten_unions(root.right)
+        else:
+            raise QueryNotSupported(
+                "Only SELECT and SELECT ... UNION ALL queries are supported"
+            )
+
     def parse(self):
         try:
             ast = parse_one(self.sql, dialect=OrmqlDialect)
@@ -852,11 +879,13 @@ class Query:
         if settings.DEBUG:
             print(f"Parsed statement: {ast!r}")
 
-        if not isinstance(ast, expressions.Select):
-            raise QueryNotSupported("Only SELECT queries are supported")
-
         try:
-            qs, values_names = self._select_to_qs(ast, [])
+            queries = self._flatten_unions(ast)
+            results = [self._select_to_qs(query, []) for query in queries]
+            if len({len(values_names.keys()) for qs, values_names in results}) != 1:
+                raise QueryError(
+                    "All parts of UNION query must return same number of columns"
+                )
         except QueryError:
             raise
         except FieldError as e:
@@ -864,20 +893,23 @@ class Query:
         except Exception as e:
             raise QueryError("Query parsing failed") from e
 
-        return qs, values_names
+        return [qs for qs, values_names in results], results[0][1]
 
     def evaluate(self):
-        qs, values_names = self.parse()
+        querysets, values_names = self.parse()
 
-        if isinstance(qs, dict):
-            yield {values_names[k]: v for k, v in qs.items()}
-        else:
-            try:
-                if settings.DEBUG:
-                    print(f"Generated statement: {qs.query!s}")
-                for row in qs:
-                    yield {
-                        values_names[k]: v for k, v in row.items() if k in values_names
-                    }
-            except (FieldError, ValueError) as e:
-                raise QueryError("Invalid combination of types") from e
+        for qs in querysets:
+            if isinstance(qs, dict):
+                yield {values_names[k]: v for k, v in qs.items()}
+            else:
+                try:
+                    if settings.DEBUG:
+                        print(f"Generated statement: {qs.query!s}")
+                    for row in qs:
+                        yield {
+                            values_names[k]: v
+                            for k, v in row.items()
+                            if k in values_names
+                        }
+                except (FieldError, ValueError) as e:
+                    raise QueryError("Invalid combination of types") from e

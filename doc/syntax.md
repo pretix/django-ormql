@@ -17,7 +17,8 @@
   - Bitwise operators
   - `IS DISTINCT`
   - `LIMIT` and `OFFSET` with complex expressions
-  - `UNION`, `INTERSECT`, `EXCEPT`
+  - `UNION` queries without `ALL`, `UNION` with `ORDER BY`, `LIMIT`, `OFFSET` modifiers 
+  - `INTERSECT`, `EXCEPT`
 
 This list of differences is not complete.
 
