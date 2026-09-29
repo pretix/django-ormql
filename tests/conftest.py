@@ -85,10 +85,12 @@ def dataset1():
         tenant=t1,
         name="CA",
         address={
+            "business": True,
+            "quality": 23,
             "city": {
                 "name": "Heidelberg",
                 "state": {"code": "BW", "country": {"code": "DE"}},
-            }
+            },
         },
         email="ca1@example.com",
     )

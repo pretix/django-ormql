@@ -59,7 +59,7 @@ column-ref: [column-ref.]column-name | | OUTER(column-ref)
 
 unary-operator: + | - | NOT
 
-binary-operator: || | -> |
+binary-operator: || | -> | ->> |
                  + | - | * | / | % | 
                  <= | >= | < | > |
                  = | == | <> | != | IS | IS NOT |
@@ -78,7 +78,7 @@ type-name: BOOL[EAN] | [BIG]INT | DECIMAL | FLOAT | DOUBLE | JSONB | TEXT | TIME
 - The result of comparisons between different types or with NULL depends on the underlying database.
 - Casting behaviour depends on the underlying database.
 - Math operations involving different numeric types are always casted to either decimal or float, i.e. `10 / 3` will not return `3`, but always `3.3333...`.
-- `||` is a concatenation operator and `->` a JSON traversal operator.
+- `||` is a concatenation operator and `->`/`->>` a JSON traversal operator.
 
 ## Supported functions
 
@@ -169,7 +169,13 @@ ORDER BY paid DESC
 ### JSON traversal
 
 ```
-SELECT address->city->state AS state
+SELECT address->city->>state AS state
 FROM customers
 WHERE name = "CA"
 ```
+
+Note that `->` will always return another JSON object, even if that is later processed to a native object in the output.
+Therefore (on strongly typed databases), `WHERE address->city->state = "CA"` will not return any results, since the
+string `"CA"` is not the same as the JSON object `"CA"`. Hence, for comparisons or other in-SQL operations, you need to
+use `WHERE address->city->>state = "CA"` to perform text extraction. `->>` always extracts text, never other types, even
+though you can cast them with `->>value::bool`.

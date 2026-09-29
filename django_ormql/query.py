@@ -15,7 +15,7 @@ from django.db.models import (
     functions,
     lookups,
 )
-from django.db.models.fields.json import KeyTransform
+from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.db.models.functions import Cast
 from sqlglot import (
     Dialect,
@@ -55,6 +55,7 @@ class OrmqlDialect(Dialect):
             "!=": TokenType.NEQ,
             "||": TokenType.DPIPE,
             "->": TokenType.ARROW,
+            "->>": TokenType.DARROW,
             "ALL": TokenType.ALL,
             "AND": TokenType.AND,
             "ASC": TokenType.ASC,
@@ -616,14 +617,21 @@ class Query:
             if expression.name not in self.placeholders:
                 raise QueryError(f"Placeholder '{expression.name}' not filled")
             return Value(self.placeholders[expression.name])
-        elif isinstance(expression, expressions.JSONExtract):
+        elif isinstance(
+            expression, (expressions.JSONExtract, expressions.JSONExtractScalar)
+        ):
+            django_transform = (
+                KeyTransform
+                if isinstance(expression, expressions.JSONExtract)
+                else KeyTextTransform
+            )
             if isinstance(expression.expression, expressions.JSONPath):
                 k = self._expression_to_django(expression.this, **kwargs)
                 for pathel in expression.expression.expressions:
                     if isinstance(pathel, expressions.JSONPathRoot):
                         pass
                     elif isinstance(pathel, expressions.JSONPathKey):
-                        k = KeyTransform(
+                        k = django_transform(
                             pathel.this,
                             k,
                         )
@@ -631,14 +639,14 @@ class Query:
                         raise QueryNotSupported("Advanced JSON path is not supported")
                 return k
             elif isinstance(expression.expression, expressions.Literal):
-                return KeyTransform(
+                return django_transform(
                     expression.expression.this,
                     self._expression_to_django(expression.this, **kwargs),
                 )
             elif isinstance(expression.expression, expressions.Column) or isinstance(
                 expression.expression, expressions.Identifier
             ):
-                return KeyTransform(
+                return django_transform(
                     expression.expression.this.this,
                     self._expression_to_django(expression.this, **kwargs),
                 )
