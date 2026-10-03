@@ -71,8 +71,7 @@ def test_columns_sum_aggregate(engine_t1):
 @pytest.mark.django_db
 def test_columns_group_by_with_aggregate(engine_t1):
     res = engine_t1.query(
-        "SELECT category.title, COUNT(*) AS n FROM products "
-        "GROUP BY category.title"
+        "SELECT category.title, COUNT(*) AS n FROM products GROUP BY category.title"
     )
     assert res.columns == [
         {"name": "category.title", "type": "TEXT", "nullable": False},

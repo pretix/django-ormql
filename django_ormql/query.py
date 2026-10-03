@@ -240,9 +240,7 @@ def _describe_expression(expr, query=None):
         out = None
     if out is None and query is not None:
         try:
-            resolved = expr.resolve_expression(
-                query=query.chain(), allow_joins=True
-            )
+            resolved = expr.resolve_expression(query=query.chain(), allow_joins=True)
             out = resolved.output_field
         except Exception:
             out = None
@@ -983,7 +981,15 @@ class Query:
         try:
             queries = self._flatten_unions(ast)
             results = [self._select_to_qs(query, []) for query in queries]
-            if len({len(values_names.keys()) for qs, values_names, column_types in results}) != 1:
+            if (
+                len(
+                    {
+                        len(values_names.keys())
+                        for qs, values_names, column_types in results
+                    }
+                )
+                != 1
+            ):
                 raise QueryError(
                     "All parts of UNION query must return same number of columns"
                 )
@@ -993,7 +999,11 @@ class Query:
             raise QueryError("Invalid combination of types") from e
         except Exception as e:
             raise QueryError("Query parsing failed") from e
-        return [qs for qs, values_names, column_types in results], results[0][1], results[0][2]
+        return (
+            [qs for qs, values_names, column_types in results],
+            results[0][1],
+            results[0][2],
+        )
 
     def evaluate(self):
         querysets, values_names, column_types = self.parse()
@@ -1022,4 +1032,5 @@ class Query:
                             }
                     except (FieldError, ValueError) as e:
                         raise QueryError("Invalid combination of types") from e
+
         return Result(_iter(), columns)
