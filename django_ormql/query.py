@@ -236,19 +236,19 @@ def _describe_expression(expr, query=None):
     out = None
     try:
         out = expr.output_field
-    except Exception:
+    except:  # noqa
         out = None
     if out is None and query is not None:
         try:
             resolved = expr.resolve_expression(query=query.chain(), allow_joins=True)
             out = resolved.output_field
-        except Exception:
+        except:  # noqa
             out = None
     if out is None:
         return "", None
     try:
         internal = out.get_internal_type()
-    except Exception:
+    except:  # noqa
         return "", None
     sql_type = INTERNAL_TYPE_TO_SQL_TYPE.get(internal, "")
     nullable = getattr(out, "null", None)
