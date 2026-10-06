@@ -78,7 +78,9 @@ def test_columns_json_field_extraction(engine_t1):
 @pytest.mark.django_db
 def test_columns_count_aggregate(engine_t1):
     res = engine_t1.query("SELECT COUNT(*) AS n FROM categories")
-    assert res.columns == [{"name": "n", "type": "INT", "nullable": False, "hint": None}]
+    assert res.columns == [
+        {"name": "n", "type": "INT", "nullable": False, "hint": None}
+    ]
 
 
 @pytest.mark.django_db
@@ -114,14 +116,26 @@ def test_columns_datetime_trunc(engine_t1):
     for k in ("year", "quarter", "month", "week", "day", "hour", "minute", "second"):
         res = engine_t1.query(f"SELECT DATETRUNC('{k}', created) as col FROM orders")
         assert res.columns == [
-            {"name": "col", "type": "DATETIME", "nullable": False, "hint": {"truncated": k}},
+            {
+                "name": "col",
+                "type": "DATETIME",
+                "nullable": False,
+                "hint": {"truncated": k},
+            },
         ]
 
 
 @pytest.mark.django_db
 def test_columns_date_trunc(engine_t1):
     for k in ("year", "quarter", "month", "week"):
-        res = engine_t1.query(f"SELECT DATETRUNC('{k}', publication_date) as col FROM products")
+        res = engine_t1.query(
+            f"SELECT DATETRUNC('{k}', publication_date) as col FROM products"
+        )
         assert res.columns == [
-            {"name": "col", "type": "DATE", "nullable": False, "hint": {"truncated": k}},
+            {
+                "name": "col",
+                "type": "DATE",
+                "nullable": False,
+                "hint": {"truncated": k},
+            },
         ]
