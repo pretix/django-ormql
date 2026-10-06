@@ -35,3 +35,18 @@ def test_placeholder(engine_t1):
         )
     )
     assert res == [{"c": 1}]
+
+
+@pytest.mark.django_db
+def test_type_info(engine_t1):
+    res = list(
+        engine_t1.query(
+            """
+            SELECT TYPE_INFO(:var) as c
+            FROM orderpositions
+            LIMIT 1
+            """,
+            placeholders={"var": 3},
+        )
+    )
+    assert res == [{"c": "INT"}]

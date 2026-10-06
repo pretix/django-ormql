@@ -82,6 +82,20 @@ def test_auto_join_two_levels(engine_t1):
 
 
 @pytest.mark.django_db
+def test_auto_join_two_levels_type_info(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT TYPE_INFO(order.customer.name) AS type_info
+        FROM orderpositions
+        LIMIT 1
+        """
+    )
+    assert list(res) == [
+        {"type_info": "TEXT"},
+    ]
+
+
+@pytest.mark.django_db
 def test_quote_identifier(engine_t1):
     res = engine_t1.query(
         """

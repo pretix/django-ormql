@@ -22,7 +22,7 @@ from sqlglot.errors import ANSI_RESET, ANSI_UNDERLINE
 
 from . import db_func
 from .exceptions import QueryError, QueryNotSupported
-from .expressions import expression_to_django, expression_to_name, _describe_expression
+from .expressions import _describe_expression, expression_to_django, expression_to_name
 
 logger = logging.getLogger(__name__)
 
@@ -135,33 +135,11 @@ class Query:
         # aggregate_names = kwargs["aggregate_names"]
         parent_table_stack = kwargs.get("parent_table_stack", [])
         kwargs["timezone"] = self.timezone
-
-        if isinstance(expression, expressions.Subquery):
-            if not isinstance(expression.this, expressions.Select):
-                raise QueryNotSupported("Only SELECT subqueries are supported")
-            qs, _, _ = self._select_to_qs(
-                expression.this, parent_table_stack=parent_table_stack + [table]
-            )
-            return db_func.AutoTypedSubquery(
-                qs,
-            )
-        elif isinstance(expression, expressions.Exists):
-            if not isinstance(expression.this, expressions.Select):
-                raise QueryNotSupported("Only SELECT subqueries are supported")
-            qs, _, _ = self._select_to_qs(
-                expression.this, parent_table_stack=parent_table_stack + [table]
-            )
-            return models.Exists(qs)
-        elif isinstance(expression, expressions.Placeholder):
-            if expression.name == "?":
-                raise QueryError("Placeholder must be named")
-            if expression.name not in self.placeholders:
-                raise QueryError(f"Placeholder '{expression.name}' not filled")
-            return Value(self.placeholders[expression.name])
-        else:
-            return expression_to_django(
-                expression, self._expression_to_django, **kwargs
-            )
+        kwargs["placeholders"] = self.placeholders
+        kwargs["subquery_builder"] = self._select_to_qs
+        return expression_to_django(
+            expression, self._expression_to_django, **kwargs
+        )
 
     def _where_to_django(self, node, **kwargs):
         return self._expression_to_django(node, **kwargs)

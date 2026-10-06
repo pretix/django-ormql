@@ -1,5 +1,8 @@
-from datetime import datetime, date
+import os
+from datetime import date, datetime
+from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
 from django.db.models import (
     BooleanField,
@@ -33,6 +36,9 @@ class Expression:
     def to_name(self, expression):
         return expression.sql()
 
+    def to_sql_type(self, expression, recurse, **kwargs):
+        return self.sql_type
+
 
 class FuncExpression(Expression):
     node_class = expressions.Anonymous
@@ -62,6 +68,13 @@ def expression_to_name(expression):
         if e.matches(expression):
             return e.to_name(expression)
     return expression.sql()
+
+
+def expression_to_sql_type(expression, **kwargs):
+    for e in _expressions:
+        if e.matches(expression):
+            return e.to_sql_type(expression, expression_to_sql_type, **kwargs)
+    return None
 
 
 types = {
@@ -148,11 +161,11 @@ def _describe_expression(expr, query=None):
         except:  # noqa
             out = None
     if out is None:
-        return "", None
+        return "", None, None
     try:
         internal = out.get_internal_type()
     except:  # noqa
-        return "", None
+        return "", None, None
     sql_type = INTERNAL_TYPE_TO_SQL_TYPE.get(internal, "")
     nullable = getattr(out, "null", None)
     hint = None
@@ -161,6 +174,7 @@ def _describe_expression(expr, query=None):
         hint = {"truncated": expr.kind}
 
     return sql_type, nullable, hint
+
 
 def _to_column_path(expression):
     """
@@ -200,6 +214,105 @@ class Column(Expression):
     def to_name(self, expression):
         return ".".join(_to_column_path(expression))
 
+    def to_sql_type(self, expression, recurse, table, aggregate_names, **kwargs):
+        cp = _to_column_path(expression)
+        if len(cp) == 1 and aggregate_names and cp[0] in aggregate_names:
+            return "FLOAT"  # we're type-guessing only for now, we don't care if INT or FLOAT or DECIMAL currently
+        return table.resolve_column_type(cp)
+
+
+@register
+class Placeholder(Expression):
+    node_class = expressions.Placeholder
+
+    def to_django(self, expression, recurse, placeholders, **kwargs):
+        if expression.name == "?":
+            raise QueryError("Placeholder must be named")
+        if expression.name not in self.placeholders:
+            raise QueryError(f"Placeholder '{expression.name}' not filled")
+        return Value(placeholders[expression.name])
+
+    def to_name(self, expression):
+        return expression.name
+
+    def to_sql_type(self, expression, recurse, **kwargs):
+        placeholders = kwargs.get("placeholders")
+        if placeholders is None:
+            return None
+        if expression.name == "?":
+            raise QueryError("Placeholder must be named")
+        if expression.name not in placeholders:
+            raise QueryError(f"Placeholder '{expression.name}' not filled")
+        v = placeholders[expression.name]
+        if isinstance(v, str):
+            return "TEXT"
+        elif isinstance(v, int):
+            return "INT"
+        elif isinstance(v, float):
+            return "FLOAT"
+        elif isinstance(v, datetime):
+            return "DATETIME"
+        elif isinstance(v, date):
+            return "DATE"
+        elif isinstance(v, bool):
+            return "BOOLEAN"
+        elif isinstance(v, Decimal):
+            return "DECIMAL"
+        elif isinstance(v, (dict, list)):
+            return "JSONB"
+        return None
+
+
+@register
+class Subquery(Expression):
+    node_class = expressions.Subquery
+
+    def to_django(self, expression, recurse, **kwargs):
+        parent_table_stack = kwargs.get("parent_table_stack", [])
+        subquery_builder = kwargs["subquery_builder"]
+        table = kwargs["table"]
+        if not isinstance(expression.this, expressions.Select):
+            raise QueryNotSupported("Only SELECT subqueries are supported")
+        qs, _, _ = subquery_builder(
+            expression.this, parent_table_stack=parent_table_stack + [table]
+        )
+        return db_func.AutoTypedSubquery(
+            qs,
+        )
+
+    def to_sql_type(self, expression, recurse, **kwargs):
+        return INTERNAL_TYPE_TO_SQL_TYPE[self.to_django(expression, recurse, **kwargs)._resolve_output_field().get_internal_type()]
+
+
+@register
+class Select(Expression):
+    node_class = expressions.Select
+
+    def to_django(self, expression, recurse, **kwargs):
+        return Subquery().to_django(expressions.Subquery(this=expression), recurse, **kwargs)
+
+    def to_sql_type(self, expression, recurse, **kwargs):
+        return Subquery().to_sql_type(expressions.Subquery(this=expression), recurse, **kwargs)
+
+
+@register
+class Exists(Expression):
+    node_class = expressions.Exists
+    sql_type = "BOOLEAN"
+
+    def to_django(self, expression, recurse, **kwargs):
+        parent_table_stack = kwargs.get("parent_table_stack", [])
+        subquery_builder = kwargs["subquery_builder"]
+        table = kwargs["table"]
+        if not isinstance(expression.this, expressions.Select):
+            raise QueryNotSupported("Only SELECT subqueries are supported")
+        qs, _, _ = subquery_builder(
+            expression.this, parent_table_stack=parent_table_stack + [table]
+        )
+        return models.Exists(
+            qs,
+        )
+
 
 @register
 class Alias(Expression):
@@ -211,6 +324,9 @@ class Alias(Expression):
     def to_name(self, expression):
         return expression.output_name
 
+    def to_sql_type(self, expression, recurse, **kwargs):
+        return recurse(expression.this, **kwargs)
+
 
 @register
 class Literal(Expression):
@@ -221,6 +337,26 @@ class Literal(Expression):
 
     def to_name(self, expression):
         return str(expression.this)
+
+    def to_sql_type(self, expression, recurse, **kwargs):
+        v = expression.to_py()
+        if isinstance(v, str):
+            return "TEXT"
+        elif isinstance(v, int):
+            return "INT"
+        elif isinstance(v, float):
+            return "FLOAT"
+        elif isinstance(v, datetime):
+            return "DATETIME"
+        elif isinstance(v, date):
+            return "DATE"
+        elif isinstance(v, bool):
+            return "BOOLEAN"
+        elif isinstance(v, Decimal):
+            return "DECIMAL"
+        elif isinstance(v, (dict, list)):
+            return "JSONB"
+        return None
 
 
 @register
@@ -251,10 +387,14 @@ class Cast(Expression):
             output_field=types[expression.to.this],
         )
 
+    def to_sql_type(self, expression, recurse, **kwargs):
+        return INTERNAL_TYPE_TO_SQL_TYPE[types[expression.to.this].get_internal_type()]
+
 
 @register
 class Extract(Expression):
     node_class = expressions.Extract
+    sql_type = "INT"
 
     def to_django(self, expression, recurse, timezone, **kwargs):
         if isinstance(expression.this, expressions.Var):
@@ -313,6 +453,26 @@ class Outer(FuncExpression):
             p = OuterRef(p)
         return p
 
+    def to_sql_type(self, expression, recurse, **kwargs):
+        parent_table_stack = kwargs.get("parent_table_stack", [])
+
+        def _resolve(e, parent_stack, depth):
+            if isinstance(e, expressions.Anonymous) and e.this.lower() == "outer":
+                if not parent_stack:
+                    raise QueryError("OUTER nested too far")
+                return _resolve(e.expressions[0], parent_stack[:-1], depth + 1)
+            elif isinstance(e, (expressions.Column, expressions.Dot)):
+                if not parent_stack:
+                    raise QueryError("OUTER nested too far")
+                return _to_column_path(e), parent_stack[-1], depth
+            else:
+                raise QueryNotSupported("Invalid argument to OUTER()")
+
+        cp, lookup_table, depth = _resolve(
+            expression.expressions[0], parent_table_stack, 1
+        )
+        return lookup_table.resolve_column_type(cp)
+
 
 @register
 class Datetrunc(FuncExpression):
@@ -342,29 +502,15 @@ class Datetrunc(FuncExpression):
             tzinfo=timezone,
         )
 
-
-function_nodes = {
-    expressions.Coalesce: _patch_func(functions.Coalesce),
-    expressions.Concat: db_func.PatchedConcatPair,
-    expressions.Greatest: _patch_func(functions.Greatest),
-    expressions.Least: _patch_func(functions.Least),
-    expressions.Abs: _patch_func(functions.Abs),
-    expressions.Ceil: _patch_func(functions.Ceil),
-    expressions.Floor: _patch_func(functions.Floor),
-    expressions.Mod: _patch_func(functions.Mod),
-    expressions.Left: _patch_func(functions.Left),
-    expressions.Right: _patch_func(functions.Right),
-    expressions.Length: _patch_func(functions.Length),
-    expressions.Lower: _patch_func(functions.Lower),
-    expressions.Upper: _patch_func(functions.Upper),
-    expressions.SubstringIndex: _patch_func(functions.StrIndex),
-}
+    def to_sql_type(self, expression, recurse, **kwargs):
+        if recurse(expression.expressions[1], **kwargs) == "DATE":
+            return "DATE"
+        return "DATETIME"
 
 
-@register
-class Function(Expression):
+class BaseFunction(Expression):
     def matches(self, expression):
-        return type(expression) in function_nodes
+        return type(expression) in self.function_nodes
 
     def to_django(self, expression, recurse, **kwargs):
         if expression.args.get("this"):
@@ -374,7 +520,7 @@ class Function(Expression):
         if expression.args.get("expression"):
             args += [recurse(expression.expression, **kwargs)]
         args += [recurse(e, **kwargs) for e in expression.expressions]
-        cls = function_nodes[type(expression)]
+        cls = self.function_nodes[type(expression)]
         if (cls.arity and cls.arity != len(args)) or any(
             v is not None
             and k
@@ -395,8 +541,60 @@ class Function(Expression):
 
 
 @register
+class TextFunction(BaseFunction):
+    function_nodes = {
+        expressions.Concat: db_func.PatchedConcatPair,
+        expressions.Left: _patch_func(functions.Left),
+        expressions.Right: _patch_func(functions.Right),
+        expressions.Lower: _patch_func(functions.Lower),
+        expressions.Upper: _patch_func(functions.Upper),
+    }
+    sql_type = "TEXT"
+
+
+@register
+class TextToIntFunction(BaseFunction):
+    function_nodes = {
+        expressions.Length: _patch_func(functions.Length),
+        expressions.SubstringIndex: _patch_func(functions.StrIndex),
+    }
+    sql_type = "INT"
+
+
+@register
+class NumericFunction(BaseFunction):
+    function_nodes = {
+        expressions.Greatest: _patch_func(functions.Greatest),
+        expressions.Least: _patch_func(functions.Least),
+        expressions.Abs: _patch_func(functions.Abs),
+        expressions.Ceil: _patch_func(functions.Ceil),
+        expressions.Floor: _patch_func(functions.Floor),
+        expressions.Mod: _patch_func(functions.Mod),
+    }
+    sql_type = "FLOAT"  # we're type-guessing only for now, we don't care if INT or FLOAT or DECIMAL currently
+
+
+@register
+class CoalesceFunction(BaseFunction):
+    function_nodes = {
+        expressions.Coalesce: _patch_func(functions.Coalesce),
+    }
+
+    def to_sql_type(self, expression, recurse, **kwargs):
+        if expression.args.get("this"):
+            args = [recurse(expression.this, **kwargs)]
+        else:
+            args = []
+        if expression.args.get("expression"):
+            args += [recurse(expression.expression, **kwargs)]
+        args += [recurse(e, **kwargs) for e in expression.expressions]
+        return args[0]
+
+
+@register
 class Round(Expression):
     node_class = expressions.Round
+    sql_type = "FLOAT"  # we're type-guessing only for now, we don't care if INT or FLOAT or DECIMAL currently
 
     def to_django(self, expression, recurse, **kwargs):
         args = [
@@ -417,6 +615,7 @@ class Round(Expression):
 @register
 class Pad(Expression):
     node_class = expressions.Pad
+    sql_type = "TEXT"
 
     def to_django(self, expression, recurse, **kwargs):
         args = [
@@ -441,6 +640,7 @@ class Pad(Expression):
 @register
 class StrPosition(Expression):
     node_class = expressions.StrPosition
+    sql_type = "INT"
 
     def to_django(self, expression, recurse, **kwargs):
         if not expression.args.get("substr"):
@@ -464,6 +664,7 @@ class StrPosition(Expression):
 @register
 class Substring(Expression):
     node_class = expressions.Substring
+    sql_type = "TEXT"
 
     def to_django(self, expression, recurse, **kwargs):
         if not expression.args.get("start"):
@@ -489,6 +690,7 @@ class Substring(Expression):
 @register
 class Replace(Expression):
     node_class = expressions.Replace
+    sql_type = "TEXT"
 
     def to_django(self, expression, recurse, **kwargs):
         args = [
@@ -503,6 +705,7 @@ class Replace(Expression):
 @register
 class DPipe(Expression):
     node_class = expressions.DPipe
+    sql_type = "TEXT"
 
     def to_django(self, expression, recurse, **kwargs):
         return functions.Concat(
@@ -525,6 +728,7 @@ aggregate_nodes = {
 @register
 class Filter(Expression):
     node_class = expressions.Filter
+    sql_type = "FLOAT"  # we're type-guessing only for now, we don't care if INT or FLOAT or DECIMAL currently
 
     def matches(self, node):
         return super().matches(node) and type(node.this) in aggregate_nodes
@@ -549,6 +753,8 @@ class Filter(Expression):
 
 @register
 class Aggregate(Expression):
+    sql_type = "FLOAT"  # we're type-guessing only for now, we don't care if INT or FLOAT or DECIMAL currently
+
     def matches(self, expression):
         return type(expression) in aggregate_nodes
 
@@ -578,6 +784,8 @@ math_binary_nodes = {
 
 @register
 class MathBinary(Expression):
+    sql_type = "FLOAT"  # we're type-guessing only for now, we don't care if INT or FLOAT or DECIMAL currently
+
     def matches(self, expression):
         return type(expression) in math_binary_nodes
 
@@ -601,6 +809,7 @@ class Order(Expression):
 @register
 class Null(Expression):
     node_class = expressions.Null
+    sql_type = "TEXT"
 
     def to_django(self, expression, recurse, **kwargs):
         # TODO do we need to guess output_field better?
@@ -630,6 +839,9 @@ class Paren(Expression):
     def to_django(self, expression, recurse, **kwargs):
         return recurse(expression.this, **kwargs)
 
+    def to_sql_type(self, expression, recurse, **kwargs):
+        return recurse(expression.this, **kwargs)
+
 
 @register
 class Neg(Expression):
@@ -637,6 +849,9 @@ class Neg(Expression):
 
     def to_django(self, expression, recurse, **kwargs):
         return -recurse(expression.this, **kwargs)
+
+    def to_sql_type(self, expression, recurse, **kwargs):
+        return recurse(expression.this, **kwargs)
 
 
 @register
@@ -676,6 +891,8 @@ boolean_expression_nodes = {
 
 @register
 class BooleanOp(Expression):
+    sql_type = "BOOLEAN"
+
     def matches(self, expression):
         return type(expression) in boolean_expression_nodes
 
@@ -692,6 +909,7 @@ class BooleanOp(Expression):
 @register
 class Between(Expression):
     node_class = expressions.Between
+    sql_type = "BOOLEAN"
 
     def to_django(self, expression, recurse, **kwargs):
         return Q(
@@ -716,6 +934,7 @@ class Between(Expression):
 @register
 class In(Expression):
     node_class = expressions.In
+    sql_type = "BOOLEAN"
 
     def to_django(self, expression, recurse, **kwargs):
         if expression.args.get("query"):
@@ -739,6 +958,7 @@ class In(Expression):
 @register
 class And(Expression):
     node_class = expressions.And
+    sql_type = "BOOLEAN"
 
     def to_django(self, expression, recurse, **kwargs):
         return recurse(expression.left, **kwargs) & recurse(expression.right, **kwargs)
@@ -747,6 +967,7 @@ class And(Expression):
 @register
 class Or(Expression):
     node_class = expressions.Or
+    sql_type = "BOOLEAN"
 
     def to_django(self, expression, recurse, **kwargs):
         return recurse(expression.left, **kwargs) | recurse(expression.right, **kwargs)
@@ -755,6 +976,7 @@ class Or(Expression):
 @register
 class Not(Expression):
     node_class = expressions.Not
+    sql_type = "BOOLEAN"
 
     def to_django(self, expression, recurse, **kwargs):
         return ~recurse(expression.this, **kwargs)
@@ -790,10 +1012,21 @@ class Case(Expression):
             default = recurse(expression.args["default"], **kwargs)
         return db_func.NumericAwareCase(*whens, default=default)
 
+    def to_sql_type(self, expression, recurse, **kwargs):
+        if expression.this:
+            for w in expression.args.get("ifs", []):
+                return recurse(w.args["true"], **kwargs)
+        else:
+            for w in expression.args.get("ifs", []):
+                return recurse(w.args["true"], **kwargs)
+        if expression.args.get("default"):
+            return recurse(expression.args["default"], **kwargs)
+
 
 @register
 class CurrentDate(Expression):
     node_class = expressions.CurrentDate
+    sql_type = "DATE"
 
     def to_django(self, expression, recurse, timezone, **kwargs):
         return functions.TruncDate(functions.Now(), tzinfo=timezone)
@@ -802,6 +1035,7 @@ class CurrentDate(Expression):
 @register
 class CurrentTime(Expression):
     node_class = expressions.CurrentTime
+    sql_type = "TIME"
 
     def to_django(self, expression, recurse, timezone, **kwargs):
         return functions.TruncTime(functions.Now(), tzinfo=timezone)
@@ -810,6 +1044,7 @@ class CurrentTime(Expression):
 @register
 class CurrentTimestamp(Expression):
     node_class = expressions.CurrentTimestamp
+    sql_type = "DATETIME"
 
     def to_django(self, expression, recurse, **kwargs):
         return functions.Now()
@@ -819,6 +1054,7 @@ class CurrentTimestamp(Expression):
 class JSONExtract(Expression):
     node_class = expressions.JSONExtract
     django_transform = KeyTransform
+    sql_type = "JSONB"
 
     def to_django(self, expression, recurse, **kwargs):
         if isinstance(expression.expression, expressions.JSONPath):
@@ -854,3 +1090,18 @@ class JSONExtract(Expression):
 class JSONExtractScalar(JSONExtract):
     node_class = expressions.JSONExtractScalar
     django_transform = KeyTextTransform
+    sql_type = "TEXT"
+
+
+@register
+class TypeInfo(FuncExpression):
+    func_name = "type_info"
+    sql_type = "TEXT"
+
+    def to_django(self, expression, recurse, **kwargs):
+        if not settings.DEBUG and "PYTEST_CURRENT_TEST" not in os.environ:
+            raise QueryNotSupported(f"TYPE_INFO not supported in production as it is not a stable API")
+        return Value(
+            expression_to_sql_type(expression.expressions[0], **kwargs),
+            output_field=models.TextField(null=True),
+        )

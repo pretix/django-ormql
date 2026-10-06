@@ -80,7 +80,8 @@ class OrderTable(ModelTable):
         Case(
             When(status__in=("new", "paid"), then=Value("valid")),
             default=Value("invalid"),
-        )
+        ),
+        sql_type="TEXT",
     )
     email = GeneratedColumn(F("customer__email"))
     email_upper = GeneratedColumn(Upper(F("customer__email")))
