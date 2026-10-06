@@ -18,6 +18,7 @@ class TenantFactory(DjangoModelFactory):
 
 class CategoryFactory(DjangoModelFactory):
     title = factory.Sequence(lambda n: "Category %d" % n)
+    closing_hour = datetime.time(hour=22, minute=30)
 
     class Meta:
         model = Category

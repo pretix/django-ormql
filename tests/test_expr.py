@@ -7,7 +7,7 @@ import pytest
 from django.conf import settings
 from django.utils.timezone import now
 
-from django_ormql.exceptions import QueryError
+from django_ormql.exceptions import QueryError, QueryNotSupported
 
 tz_ny = zoneinfo.ZoneInfo("America/New_York")
 
@@ -140,7 +140,7 @@ def test_cast_fail(engine_t1):
         list(
             engine_t1.query(
                 """
-            SELECT EXTRACT("day", "2025-02-01"::DATE) FROM orderpositions
+            SELECT EXTRACT("day", "123"::INT) FROM orderpositions
             """
             )
         )
@@ -241,7 +241,7 @@ def test_case_type_guess(engine_t1):
         ("ROUND(single_price / 2)", Decimal("10.00"), "FLOAT"),
         ("ROUND(single_price / 2, 2)", Decimal("9.50"), "FLOAT"),
         ("MOD(single_price, 3)", 1, "FLOAT"),
-        # Date functions
+        # Datetime functions
         ("EXTRACT('year' FROM order.created)", 2024, "INT"),
         ("EXTRACT(YEAR FROM order.created)", 2024, "INT"),
         ("EXTRACT('iso_year' FROM order.created)", 2024, "INT"),
@@ -304,6 +304,65 @@ def test_case_type_guess(engine_t1):
             datetime.datetime(2024, 12, 14, 2, 13, 14, 0, tzinfo=datetime.timezone.utc),
             "DATETIME",
         ),
+        # Date functions
+        ("EXTRACT('year' FROM product.publication_date)", 2026, "INT"),
+        ("EXTRACT(YEAR FROM product.publication_date)", 2026, "INT"),
+        ("EXTRACT('iso_year' FROM product.publication_date)", 2026, "INT"),
+        ("EXTRACT(ISO_YEAR FROM product.publication_date)", 2026, "INT"),
+        ("EXTRACT('quarter' FROM product.publication_date)", 1, "INT"),
+        ("EXTRACT(QUARTER FROM product.publication_date)", 1, "INT"),
+        ("EXTRACT('month' FROM product.publication_date)", 2, "INT"),
+        ("EXTRACT(MONTH FROM product.publication_date)", 2, "INT"),
+        ("EXTRACT('day' FROM product.publication_date)", 20, "INT"),
+        ("EXTRACT(DAY FROM product.publication_date)", 20, "INT"),
+        ("EXTRACT('week' FROM product.publication_date)", 8, "INT"),
+        ("EXTRACT(WEEK FROM product.publication_date)", 8, "INT"),
+        ("EXTRACT('week_day' FROM product.publication_date)", 6, "INT"),
+        ("EXTRACT(WEEK_DAY FROM product.publication_date)", 6, "INT"),
+        ("EXTRACT('iso_week_day' FROM product.publication_date)", 5, "INT"),
+        ("EXTRACT(ISO_WEEK_DAY FROM product.publication_date)", 5, "INT"),
+        (
+            "DATETRUNC('year', product.publication_date)",
+            datetime.date(2026, 1, 1),
+            "DATE",
+        ),
+        (
+            "DATETRUNC('quarter', product.publication_date)",
+            datetime.date(2026, 1, 1),
+            "DATE",
+        ),
+        (
+            "DATETRUNC('month', product.publication_date)",
+            datetime.date(2026, 2, 1),
+            "DATE",
+        ),
+        (
+            "DATETRUNC('day', product.publication_date)",
+            datetime.date(2026, 2, 20),
+            "DATE",
+        ),
+        # Time functions
+        ("EXTRACT('hour' FROM product.category.closing_hour)", 22, "INT"),
+        ("EXTRACT(HOUR FROM product.category.closing_hour)", 22, "INT"),
+        ("EXTRACT('minute' FROM product.category.closing_hour)", 30, "INT"),
+        ("EXTRACT(MINUTE FROM product.category.closing_hour)", 30, "INT"),
+        ("EXTRACT('second' FROM product.category.closing_hour)", 0, "INT"),
+        ("EXTRACT(SECOND FROM product.category.closing_hour)", 0, "INT"),
+        (
+            "DATETRUNC('hour', product.category.closing_hour)",
+            datetime.time(22, 0),
+            "TIME",
+        ),
+        (
+            "DATETRUNC('minute', product.category.closing_hour)",
+            datetime.time(22, 30, 0),
+            "TIME",
+        ),
+        (
+            "DATETRUNC('second', product.category.closing_hour)",
+            datetime.time(22, 30, 0),
+            "TIME",
+        ),
         # String functions
         (
             "CONCAT(product.title, ' for ', order.customer.name)",
@@ -338,14 +397,16 @@ def test_case_type_guess(engine_t1):
     ],
 )
 def test_functions(engine_t1, expr, result, type_guess):
-    res = engine_t1.query(
-        f"""
+    res = list(
+        engine_t1.query(
+            f"""
         SELECT single_price, quantity, {expr} AS result, TYPE_INFO({expr}) AS type_guess
         FROM orderpositions
         WHERE quantity = 3
         """
+        )
     )
-    assert list(res) == [
+    assert res == [
         {
             "single_price": Decimal("19.00"),
             "quantity": 3,
@@ -353,6 +414,9 @@ def test_functions(engine_t1, expr, result, type_guess):
             "type_guess": type_guess,
         },
     ]
+    if type_guess == "DATE":
+        # date and datetime are quite compatible, let's be sure about what we get
+        assert type(res[0]["result"]) == datetime.date
 
 
 @pytest.mark.django_db
@@ -484,3 +548,40 @@ def test_functions_with_timezone(engine_t1, expr, result):
     assert list(res) == [
         {"single_price": Decimal("19.00"), "quantity": 3, "result": result},
     ]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "expr,result",
+    [
+        (
+            "EXTRACT('minute' FROM product.publication_date)",
+            "Unsupported extract value",
+        ),
+        ("EXTRACT('hour' FROM product.publication_date)", "Unsupported extract value"),
+        (
+            "EXTRACT('second' FROM product.publication_date)",
+            "Unsupported extract value",
+        ),
+        ("DATETRUNC('hour', product.publication_date)", "Unsupported truncation type"),
+        (
+            "DATETRUNC('minute', product.publication_date)",
+            "Unsupported truncation type",
+        ),
+        (
+            "DATETRUNC('second', product.publication_date)",
+            "Unsupported truncation type",
+        ),
+    ],
+)
+def test_date_too_much_granularity(engine_t1, expr, result):
+    with pytest.raises(QueryNotSupported) as e:
+        engine_t1.query(
+            f"""
+            SELECT {expr} AS result
+            FROM orderpositions
+            WHERE quantity = 3
+            """,
+            timezone=tz_ny,
+        )
+        assert result in str(e)

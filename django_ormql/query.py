@@ -20,7 +20,6 @@ from sqlglot import (
 )
 from sqlglot.errors import ANSI_RESET, ANSI_UNDERLINE
 
-from . import db_func
 from .exceptions import QueryError, QueryNotSupported
 from .expressions import _describe_expression, expression_to_django, expression_to_name
 
@@ -131,15 +130,14 @@ class Query:
         self.default_limit = default_limit
 
     def _expression_to_django(self, expression, **kwargs):
-        table = kwargs["table"]
+        # expected kwargs depending on context:
+        # table = kwargs["table"]
         # aggregate_names = kwargs["aggregate_names"]
-        parent_table_stack = kwargs.get("parent_table_stack", [])
+        # parent_table_stack = kwargs.get("parent_table_stack", [])
         kwargs["timezone"] = self.timezone
         kwargs["placeholders"] = self.placeholders
         kwargs["subquery_builder"] = self._select_to_qs
-        return expression_to_django(
-            expression, self._expression_to_django, **kwargs
-        )
+        return expression_to_django(expression, self._expression_to_django, **kwargs)
 
     def _where_to_django(self, node, **kwargs):
         return self._expression_to_django(node, **kwargs)

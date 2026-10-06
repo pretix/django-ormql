@@ -13,6 +13,7 @@ class Tenant(models.Model):
 class Category(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
     title = models.CharField(max_length=250)
+    closing_hour = models.TimeField()
 
     class Meta:
         ordering = ("id",)

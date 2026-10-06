@@ -15,6 +15,7 @@ class CategoryTable(ModelTable):
         columns = [
             "id",
             "title",
+            "closing_hour",
         ]
 
 

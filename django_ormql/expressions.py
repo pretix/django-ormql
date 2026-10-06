@@ -205,7 +205,9 @@ class Column(Expression):
     def matches(self, expression):
         return isinstance(expression, (expressions.Column, expressions.Dot))
 
-    def to_django(self, expression, recurse, table, aggregate_names, **kwargs):
+    def to_django(self, expression, recurse, **kwargs):
+        table = kwargs["table"]
+        aggregate_names = kwargs["aggregate_names"]
         cp = _to_column_path(expression)
         if len(cp) == 1 and aggregate_names and cp[0] in aggregate_names:
             return F(aggregate_names[cp[0]])
@@ -214,7 +216,9 @@ class Column(Expression):
     def to_name(self, expression):
         return ".".join(_to_column_path(expression))
 
-    def to_sql_type(self, expression, recurse, table, aggregate_names, **kwargs):
+    def to_sql_type(self, expression, recurse, **kwargs):
+        table = kwargs["table"]
+        aggregate_names = kwargs["aggregate_names"]
         cp = _to_column_path(expression)
         if len(cp) == 1 and aggregate_names and cp[0] in aggregate_names:
             return "FLOAT"  # we're type-guessing only for now, we don't care if INT or FLOAT or DECIMAL currently
@@ -225,10 +229,11 @@ class Column(Expression):
 class Placeholder(Expression):
     node_class = expressions.Placeholder
 
-    def to_django(self, expression, recurse, placeholders, **kwargs):
+    def to_django(self, expression, recurse, **kwargs):
+        placeholders = kwargs["placeholders"]
         if expression.name == "?":
             raise QueryError("Placeholder must be named")
-        if expression.name not in self.placeholders:
+        if expression.name not in placeholders:
             raise QueryError(f"Placeholder '{expression.name}' not filled")
         return Value(placeholders[expression.name])
 
@@ -281,7 +286,11 @@ class Subquery(Expression):
         )
 
     def to_sql_type(self, expression, recurse, **kwargs):
-        return INTERNAL_TYPE_TO_SQL_TYPE[self.to_django(expression, recurse, **kwargs)._resolve_output_field().get_internal_type()]
+        return INTERNAL_TYPE_TO_SQL_TYPE[
+            self.to_django(expression, recurse, **kwargs)
+            ._resolve_output_field()
+            .get_internal_type()
+        ]
 
 
 @register
@@ -289,10 +298,14 @@ class Select(Expression):
     node_class = expressions.Select
 
     def to_django(self, expression, recurse, **kwargs):
-        return Subquery().to_django(expressions.Subquery(this=expression), recurse, **kwargs)
+        return Subquery().to_django(
+            expressions.Subquery(this=expression), recurse, **kwargs
+        )
 
     def to_sql_type(self, expression, recurse, **kwargs):
-        return Subquery().to_sql_type(expressions.Subquery(this=expression), recurse, **kwargs)
+        return Subquery().to_sql_type(
+            expressions.Subquery(this=expression), recurse, **kwargs
+        )
 
 
 @register
@@ -396,7 +409,8 @@ class Extract(Expression):
     node_class = expressions.Extract
     sql_type = "INT"
 
-    def to_django(self, expression, recurse, timezone, **kwargs):
+    def to_django(self, expression, recurse, **kwargs):
+        timezone = kwargs["timezone"]
         if isinstance(expression.this, expressions.Var):
             lookup_name = expression.this.this.lower()
         else:
@@ -415,6 +429,20 @@ class Extract(Expression):
             "second",
         ):
             raise QueryNotSupported(f"Unsupported extract value '{lookup_name}'")
+        if expression_to_sql_type(expression.expression, **kwargs) == "DATE":
+            # tzinfo is only supported for datetimes, not dates
+            timezone = None
+            if lookup_name in ("hour", "minute", "second"):
+                raise QueryNotSupported(
+                    f"Unsupported extract value '{lookup_name}' for DATE"
+                )
+        elif expression_to_sql_type(expression.expression, **kwargs) == "TIME":
+            # tzinfo is only supported for datetimes, not dates
+            timezone = None
+            if lookup_name not in ("hour", "minute", "second"):
+                raise QueryNotSupported(
+                    f"Unsupported extract value '{lookup_name}' for TIME"
+                )
         return functions.Extract(
             recurse(expression.expression, **kwargs),
             lookup_name=lookup_name,
@@ -478,7 +506,8 @@ class Outer(FuncExpression):
 class Datetrunc(FuncExpression):
     func_name = "datetrunc"
 
-    def to_django(self, expression, recurse, timezone, **kwargs):
+    def to_django(self, expression, recurse, **kwargs):
+        timezone = kwargs["timezone"]
         if len(expression.expressions) != 2:
             raise QueryError("Function datetrunc takes exactly two arguments")
         try:
@@ -496,6 +525,20 @@ class Datetrunc(FuncExpression):
                 raise QueryNotSupported(f"Unsupported truncation type '{lookup_name}'")
         except ValueError:
             raise QueryNotSupported("Unsupported truncation type")
+        if expression_to_sql_type(expression.expressions[1], **kwargs) == "DATE":
+            # tzinfo is only supported for datetimes, not dates
+            timezone = None
+            if lookup_name in ("hour", "minute", "second"):
+                raise QueryNotSupported(
+                    f"Unsupported truncation type '{lookup_name}' for DATE"
+                )
+        elif expression_to_sql_type(expression.expressions[1], **kwargs) == "TIME":
+            # tzinfo is only supported for datetimes, not times
+            timezone = None
+            if lookup_name not in ("hour", "minute", "second"):
+                raise QueryNotSupported(
+                    f"Unsupported truncation type '{lookup_name}' for TIME"
+                )
         return functions.Trunc(
             recurse(expression.expressions[1], **kwargs),
             lookup_name,
@@ -505,6 +548,8 @@ class Datetrunc(FuncExpression):
     def to_sql_type(self, expression, recurse, **kwargs):
         if recurse(expression.expressions[1], **kwargs) == "DATE":
             return "DATE"
+        if recurse(expression.expressions[1], **kwargs) == "TIME":
+            return "TIME"
         return "DATETIME"
 
 
@@ -1028,7 +1073,8 @@ class CurrentDate(Expression):
     node_class = expressions.CurrentDate
     sql_type = "DATE"
 
-    def to_django(self, expression, recurse, timezone, **kwargs):
+    def to_django(self, expression, recurse, **kwargs):
+        timezone = kwargs["timezone"]
         return functions.TruncDate(functions.Now(), tzinfo=timezone)
 
 
@@ -1037,7 +1083,8 @@ class CurrentTime(Expression):
     node_class = expressions.CurrentTime
     sql_type = "TIME"
 
-    def to_django(self, expression, recurse, timezone, **kwargs):
+    def to_django(self, expression, recurse, **kwargs):
+        timezone = kwargs["timezone"]
         return functions.TruncTime(functions.Now(), tzinfo=timezone)
 
 
@@ -1100,7 +1147,9 @@ class TypeInfo(FuncExpression):
 
     def to_django(self, expression, recurse, **kwargs):
         if not settings.DEBUG and "PYTEST_CURRENT_TEST" not in os.environ:
-            raise QueryNotSupported(f"TYPE_INFO not supported in production as it is not a stable API")
+            raise QueryNotSupported(
+                "TYPE_INFO not supported in production as it is not a stable API"
+            )
         return Value(
             expression_to_sql_type(expression.expressions[0], **kwargs),
             output_field=models.TextField(null=True),
