@@ -826,6 +826,9 @@ class Query:
                     .values(list(aggregations.keys())[0])
                 )
             else:
+                if values_args:
+                    raise QueryNotSupported("You can currently not mix aggregate and non-aggregate columns if you "
+                                            "do not use GROUP BY.")
                 qs = qs.aggregate(**aggregations)
         else:
             qs = qs.values(**values_args)
