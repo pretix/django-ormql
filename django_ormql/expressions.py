@@ -1141,6 +1141,41 @@ class JSONExtractScalar(JSONExtract):
 
 
 @register
+class Lambda(Expression):
+    # We do not support lambdas, but the parser emits them for structurs like fun(field->path)
+    # which we actually want to interpret as JSON access. Unfortunately, we need to recursively
+    # insert our JSONExtract node at the innermost level if we have nested JSON extraction, which
+    # makes this more complex.
+    node_class = expressions.Lambda
+
+    def _replace_recursively(self, root_field, expr):
+        if not isinstance(
+            expr, (expressions.JSONExtract, expressions.JSONExtractScalar)
+        ):
+            raise QueryNotSupported("Invalid usage of JSON lookup")
+        if isinstance(expr.this, expressions.Column):
+            return expr.__class__(
+                this=expressions.JSONExtract(this=root_field, expression=expr.this),
+                expression=expr.expression,
+            )
+        else:
+            return expr.__class__(
+                this=self._replace_recursively(root_field, expr.this),
+                expression=expr.expression,
+            )
+
+    def to_django(self, expression, recurse, **kwargs):
+        root_field = expressions.Column(this=expression.expressions[0])
+        new_expr = self._replace_recursively(root_field, expression.this)
+        return expression_to_django(new_expr, recurse, **kwargs)
+
+    def to_sql_type(self, expression, recurse, **kwargs):
+        root_field = expressions.Column(this=expression.expressions[0])
+        new_expr = self._replace_recursively(root_field, expression.this)
+        return expression_to_sql_type(new_expr, **kwargs)
+
+
+@register
 class TypeInfo(FuncExpression):
     func_name = "type_info"
     sql_type = "TEXT"

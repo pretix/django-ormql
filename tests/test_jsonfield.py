@@ -6,7 +6,7 @@ from django.conf import settings
 def test_select_json(engine_t1):
     res = engine_t1.query(
         """
-        SELECT address
+        SELECT address, TYPE_INFO(address) as type_info
         FROM customers
         WHERE name = "CA"
         """
@@ -20,7 +20,8 @@ def test_select_json(engine_t1):
                     "name": "Heidelberg",
                     "state": {"code": "BW", "country": {"code": "DE"}},
                 },
-            }
+            },
+            "type_info": "JSONB",
         }
     ]
 
@@ -29,12 +30,14 @@ def test_select_json(engine_t1):
 def test_select_json_key(engine_t1):
     res = engine_t1.query(
         """
-        SELECT address->city->state AS state
+        SELECT address->city->state AS state, TYPE_INFO(address->city->state) AS type_info
         FROM customers
         WHERE name = "CA"
         """
     )
-    assert list(res) == [{"state": {"code": "BW", "country": {"code": "DE"}}}]
+    assert list(res) == [
+        {"state": {"code": "BW", "country": {"code": "DE"}}, "type_info": "JSONB"}
+    ]
 
     res = engine_t1.query(
         """
@@ -50,12 +53,14 @@ def test_select_json_key(engine_t1):
 
     res = engine_t1.query(
         """
-        SELECT address->city->state->>code AS state
+        SELECT address->city->state->>code AS state,
+            LOWER(address->city->state->>code) AS lower_code,
+            TYPE_INFO(address->city->state->>code) AS type_info
         FROM customers
         WHERE name = "CA"
         """
     )
-    assert list(res) == [{"state": "BW"}]
+    assert list(res) == [{"state": "BW", "lower_code": "bw", "type_info": "TEXT"}]
 
 
 @pytest.mark.django_db
