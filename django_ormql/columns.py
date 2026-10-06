@@ -10,10 +10,17 @@ from django_ormql.exceptions import QueryNotSupported
 
 class BaseColumn:
     def __init__(
-        self, *, source=None, nullable=None, enum_options=None, model_field=None
+        self,
+        *,
+        source=None,
+        nullable=None,
+        sql_type=None,
+        enum_options=None,
+        model_field=None,
     ):
         self.source = source
         self._nullable = nullable
+        self._sql_type = sql_type
         self.enum_options = enum_options
 
     def bind(self, field_name, parent):
@@ -29,9 +36,16 @@ class BaseColumn:
             )
         return F(self.source)
 
+    def resolve_column_type(self, remaining_path):
+        if remaining_path:
+            raise QueryNotSupported(
+                f"Column '{self.field_name}' is not a related field"
+            )
+        return self.sql_type
+
     @property
     def sql_type(self):
-        return ""
+        return self._sql_type
 
     @property
     def nullable(self):
@@ -176,6 +190,15 @@ class ForeignKeyColumn(BaseColumn):
                 raise TypeError(f"Unexpected type {type(related_field)}")
         else:
             return F("__".join([self.source, "pk"]))
+
+    def resolve_column_type(self, remaining_path):
+        if len(remaining_path) > 20:
+            raise QueryNotSupported("Upper limit of JOINs reached.")
+        rt = self.related_table(is_related=True)
+        if remaining_path:
+            return rt.resolve_column_type(remaining_path)
+        else:
+            return "INT"
 
 
 class GeneratedColumn(BaseColumn):

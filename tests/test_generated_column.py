@@ -17,6 +17,18 @@ def test_select_same_table(engine_t1):
 
 
 @pytest.mark.django_db
+def test_select_type_info(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT type_info(validity) AS type_info
+        FROM orders
+        LIMIT 1
+        """
+    )
+    assert list(res) == [{"type_info": "TEXT"}]
+
+
+@pytest.mark.django_db
 def test_select_joined_table(engine_t1):
     res = engine_t1.query(
         """

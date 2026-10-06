@@ -23,13 +23,14 @@ def test_unrelated_subquery(engine_t1):
 def test_related_subquery(engine_t1):
     res = engine_t1.query(
         """
-        SELECT (SELECT name FROM customers WHERE id = OUTER(order.customer)) AS result
+        SELECT (SELECT name FROM customers WHERE id = OUTER(order.customer)) AS result,
+        TYPE_INFO(SELECT name FROM customers WHERE id = OUTER(order.customer)) AS type_info
         FROM orderpositions
         WHERE quantity = 3
         """
     )
     assert list(res) == [
-        {"result": "CA"},
+        {"result": "CA", "type_info": "TEXT"},
     ]
 
 
@@ -70,19 +71,39 @@ def test_nested_outer_ref_in_subquery(engine_t1):
 
 
 @pytest.mark.django_db
+def test_outer_ref_type_resolution(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT (
+            SELECT (
+                SELECT TYPE_INFO(OUTER(OUTER(order.customer.name))) FROM customers WHERE id = OUTER(OUTER(order.customer))
+            ) FROM orders WHERE id = OUTER(order)
+        ) AS result
+        FROM orderpositions
+        WHERE quantity = 3
+        """
+    )
+    assert list(res) == [
+        {"result": "TEXT"},
+    ]
+
+
+@pytest.mark.django_db
 def test_aggregate_in_subquery_with_outerref(engine_t1):
     res = engine_t1.query(
         """
         SELECT title, (
             SELECT COUNT(*) FROM orderpositions WHERE product = OUTER(id)
-        ) AS result
+        ) AS result, TYPE_INFO(
+            SELECT COUNT(*) FROM orderpositions WHERE product = OUTER(id)
+        ) AS type_info
         FROM products
         """
     )
     assert list(res) == [
-        {"title": "Lord of the rings", "result": 2},
-        {"title": "SQL for Dummies", "result": 1},
-        {"title": "Lord of the rings DVD", "result": 2},
+        {"title": "Lord of the rings", "result": 2, "type_info": "INT"},
+        {"title": "SQL for Dummies", "result": 1, "type_info": "INT"},
+        {"title": "Lord of the rings DVD", "result": 2, "type_info": "INT"},
     ]
 
 
@@ -140,6 +161,18 @@ def test_exists_subquery(engine_t1):
     )
     assert list(res) == [
         {"title": "Lord of the rings"},
+    ]
+    res = engine_t1.query(
+        """
+        SELECT
+        EXISTS(SELECT 1 FROM orderpositions WHERE product = OUTER(id) AND order.status = "paid") exists,
+        TYPE_INFO(EXISTS(SELECT 1 FROM orderpositions WHERE product = OUTER(id) AND order.status = "paid")) type_info
+        FROM products
+        LIMIT 1
+        """
+    )
+    assert list(res) == [
+        {"exists": False, "type_info": "BOOLEAN"},
     ]
 
 

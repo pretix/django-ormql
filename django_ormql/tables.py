@@ -257,3 +257,21 @@ class ModelTable(Table):
 
         column = self.columns[column_name]
         return column.resolve_column_path(column_path[1:])
+
+    def resolve_column_type(self, column_path):
+        for c in column_path:
+            if "__" in c:
+                raise QueryError("Cannot use __ in column path")
+        column_name = column_path[0]
+        exclude_if_related = getattr(self.Meta, "exclude_if_related", [])
+        if column_name not in self.columns:
+            if column_name in exclude_if_related:
+                raise QueryError(
+                    f"Column '{column_path[0]}' cannot be queried on related tables."
+                )
+            raise QueryError(
+                f"Column '{column_path[0]}' does not exist in table '{self.Meta.name}'."
+            )
+
+        column = self.columns[column_name]
+        return column.resolve_column_type(column_path[1:])
