@@ -222,14 +222,15 @@ INTERNAL_TYPE_TO_SQL_TYPE = {
 
 
 def _describe_expression(expr, query=None):
-    """Extract (sql_type, nullable) from a Django expression's output_field.
+    """Extract (sql_type, nullable, hint) from a Django expression's output_field.
+    Hint is dependent on type and currently only available for truncated datetimes.
 
     Aggregates and Cast() / typed Func() have `.output_field` directly. Plain
     F() references only know their field once resolved against a query; when
     `query` is supplied, we resolve on a cloned query (so we don't mutate the
     original with extra joins) and read `output_field` off the resolved node.
 
-    Returns ("", None) for anything we can't pin down — the frontend treats
+    Returns ("", None, None) for anything we can't pin down — the frontend treats
     that as "unknown, render opaquely" which matches the pre-metadata
     behavior.
     """
@@ -252,7 +253,12 @@ def _describe_expression(expr, query=None):
         return "", None
     sql_type = INTERNAL_TYPE_TO_SQL_TYPE.get(internal, "")
     nullable = getattr(out, "null", None)
-    return sql_type, nullable
+    hint = None
+
+    if isinstance(expr, functions.datetime.TruncBase):
+        hint = {"truncated": expr.kind}
+
+    return sql_type, nullable, hint
 
 
 class Result:
@@ -1017,6 +1023,7 @@ class Query:
                 "name": values_names[k],
                 "type": column_types.get(k, ("", None))[0],
                 "nullable": column_types.get(k, ("", None))[1],
+                "hint": column_types.get(k, ("", None))[2],
             }
             for k in values_names
         ]
