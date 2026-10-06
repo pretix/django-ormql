@@ -7,7 +7,6 @@ from django.db.models import (
     F,
     OrderBy,
     Value,
-    aggregates,
 )
 from sqlglot import (
     Dialect,
@@ -21,7 +20,12 @@ from sqlglot import (
 from sqlglot.errors import ANSI_RESET, ANSI_UNDERLINE
 
 from .exceptions import QueryError, QueryNotSupported
-from .expressions import _describe_expression, expression_to_django, expression_to_name
+from .expressions import (
+    _describe_expression,
+    expression_is_aggregate,
+    expression_to_django,
+    expression_to_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +212,7 @@ class Query:
                     aggregate_names=[],
                     parent_table_stack=parent_table_stack,
                 )
-                if isinstance(django_e, aggregates.Aggregate):
+                if expression_is_aggregate(e):
                     # We do not use the alias names given by the user, first to ensure uniqueness, but also Django has
                     # had some SQL injection vulns recently that affected user-chosen annotate targets. We'll remap
                     # ourselves later.

@@ -127,3 +127,29 @@ def test_aggregate_filter(engine_t1):
         """
     )
     assert list(res) == [{"paid": 2, "canceled": 3, "all": 5}]
+
+
+@pytest.mark.django_db
+def test_aggregate_function_arithmetics(engine_t1):
+    res = engine_t1.query(
+        """
+        SELECT SUM(price) / COUNT(*) AS average
+        FROM products
+        """
+    )
+    assert [{k: round(v, 2) for k, v in row.items()} for row in res] == [
+        {
+            "average": Decimal("17.03"),
+        }
+    ]
+    res = engine_t1.query(
+        """
+        SELECT ROUND(SUM(price) / COUNT(*)) AS average
+        FROM products
+        """
+    )
+    assert [{k: round(v, 2) for k, v in row.items()} for row in res] == [
+        {
+            "average": Decimal(17),
+        }
+    ]
