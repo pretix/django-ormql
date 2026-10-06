@@ -39,6 +39,15 @@ class Expression:
     def to_sql_type(self, expression, recurse, **kwargs):
         return self.sql_type
 
+    def is_aggregate(self, expression, recurse, **kwargs):
+        for args in expression.args.values():
+            if isinstance(args, list):
+                if any(recurse(a) for a in args):
+                    return True
+            if recurse(args):
+                return True
+        return False
+
 
 class FuncExpression(Expression):
     node_class = expressions.Anonymous
@@ -74,6 +83,13 @@ def expression_to_sql_type(expression, **kwargs):
     for e in _expressions:
         if e.matches(expression):
             return e.to_sql_type(expression, expression_to_sql_type, **kwargs)
+    return None
+
+
+def expression_is_aggregate(expression, **kwargs):
+    for e in _expressions:
+        if e.matches(expression):
+            return e.is_aggregate(expression, expression_is_aggregate, **kwargs)
     return None
 
 
@@ -292,6 +308,9 @@ class Subquery(Expression):
             .get_internal_type()
         ]
 
+    def is_aggregate(self, expression, recurse, **kwargs):
+        return False  # barrier between query and subquery
+
 
 @register
 class Select(Expression):
@@ -325,6 +344,9 @@ class Exists(Expression):
         return models.Exists(
             qs,
         )
+
+    def is_aggregate(self, expression, recurse, **kwargs):
+        return False  # barrier between query and subquery
 
 
 @register
@@ -795,6 +817,9 @@ class Filter(Expression):
             filter=recurse(expression.expression.this, **kwargs),
         )
 
+    def is_aggregate(self, expression, recurse, **kwargs):
+        return True
+
 
 @register
 class Aggregate(Expression):
@@ -816,6 +841,9 @@ class Aggregate(Expression):
             )
         cls = aggregate_nodes[type(expression)]
         return cls(*args, distinct=distinct)
+
+    def is_aggregate(self, expression, recurse, **kwargs):
+        return True
 
 
 math_binary_nodes = {
@@ -1189,3 +1217,6 @@ class TypeInfo(FuncExpression):
             expression_to_sql_type(expression.expressions[0], **kwargs),
             output_field=models.TextField(null=True),
         )
+
+    def is_aggregate(self, expression, recurse, **kwargs):
+        return False
