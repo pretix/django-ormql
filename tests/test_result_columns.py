@@ -30,13 +30,25 @@ def test_columns_datetime_field(engine_t1):
 
 
 @pytest.mark.django_db
-def test_columns_nullable_field(engine_t1):
-    # Customer is nullable on Order (null=True)
+def test_columns_nullable(engine_t1):
+    res = engine_t1.query("SELECT name FROM orderpositions")
+    assert res.columns == [
+        {"name": "name", "type": "TEXT", "nullable": True, "hint": None},
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.xfail(reason="Known bug, we cannot see the nullability of foreign keys")
+def test_columns_nullable_foreignkey(engine_t1):
+    # Customer is nullable on Order, but name not on customer
+    res = engine_t1.query("SELECT customer FROM orders")
+    assert res.columns == [
+        {"name": "customer", "type": "TEXT", "nullable": True, "hint": None},
+    ]
     res = engine_t1.query("SELECT customer.name FROM orders")
-    assert len(res.columns) == 1
-    assert res.columns[0]["name"] == "customer.name"
-    assert res.columns[0]["type"] == "TEXT"
-    # TODO: assert res.columns[0]["nullable"] is None
+    assert res.columns == [
+        {"name": "customer.name", "type": "TEXT", "nullable": False, "hint": None},
+    ]
 
 
 @pytest.mark.django_db

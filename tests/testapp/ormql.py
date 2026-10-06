@@ -116,6 +116,7 @@ class OrderPositionTable(ModelTable):
             "quantity",
             "single_price",
             "tax_rate",
+            "name",
         ]
 
 

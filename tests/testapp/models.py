@@ -77,6 +77,7 @@ class OrderPosition(models.Model):
     quantity = models.IntegerField()
     single_price = models.DecimalField(max_digits=10, decimal_places=2)
     tax_rate = models.DecimalField(max_digits=10, decimal_places=2)
+    name = models.CharField(max_length=250, null=True)
 
     class Meta:
         ordering = ("id",)
