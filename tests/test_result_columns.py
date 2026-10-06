@@ -116,3 +116,12 @@ def test_columns_datetime_trunc(engine_t1):
         assert res.columns == [
             {"name": "col", "type": "DATETIME", "nullable": False, "hint": {"truncated": k}},
         ]
+
+
+@pytest.mark.django_db
+def test_columns_date_trunc(engine_t1):
+    for k in ("year", "quarter", "month", "week"):
+        res = engine_t1.query(f"SELECT DATETRUNC('{k}', publication_date) as col FROM products")
+        assert res.columns == [
+            {"name": "col", "type": "DATE", "nullable": False, "hint": {"truncated": k}},
+        ]
